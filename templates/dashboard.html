@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Panel Premium - Control Acceso</title>
+    <link rel="icon" href="/static/pestana.png">   
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = { 
+            theme: { 
+                extend: { 
+                    fontFamily: { sans: ['Plus Jakarta Sans', 'sans-serif'] },
+                    colors: {
+                        dark: { 900: '#0f172a', 800: '#1e293b', 700: '#334155' }
+                    }
+                } 
+            } 
+        }
+    </script>
+    <style>
+        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); }
+        body::-webkit-scrollbar { width: 8px; }
+        body::-webkit-scrollbar-track { background: #0f172a; }
+        body::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-dark-900 text-slate-200 min-h-screen flex flex-col md:flex-row font-sans">
+
+    <aside class="w-full md:w-72 glass flex flex-col justify-between md:min-h-screen shadow-2xl relative z-20">
+        <div class="p-6">
+            <div class="flex items-center gap-3 mb-10">
+                <div class="w-10 h-10 bg-emerald-500 rounded-lg flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                    <span class="text-white font-bold text-xl">C</span>
+                </div>
+                <h3 class="text-xl font-bold text-white tracking-tight">Control de Accesos</h3>
+            </div>
+            
+            <nav class="flex flex-col gap-2">
+                <p class="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-2 ml-4">Menú Principal</p>
+                <a href="/dashboard" class="flex items-center gap-3 px-4 py-3 bg-emerald-500/10 text-emerald-400 rounded-xl font-semibold border border-emerald-500/20 transition-all">
+                    <span>🏠</span> Dashboard
+                </a>
+                <a href="/usuarios" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl font-medium transition-all group">
+                    <span class="group-hover:scale-110 transition-transform">👥</span> Usuarios
+                </a>
+                <a href="/historial" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl font-medium transition-all group">
+                    <span class="group-hover:scale-110 transition-transform">📝</span> Historial
+                </a>
+                
+                <div class="mt-4 pt-4 border-t border-white/5">
+                    <a href="/logout" class="flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-red-500/10 rounded-xl font-medium transition-all group">
+                        <span class="group-hover:rotate-12 transition-transform">🔒</span> Cerrar Sesión
+                    </a>
+                </div>
+            </nav>
+             <div class="p-6 m-4 glass rounded-2xl flex items-center gap-4">
+            <img src="https://cdn-icons-png.flaticon.com/512/1946/1946429.png" class="w-10 h-10 rounded-full border border-slate-600">
+            <div class="overflow-hidden">
+                <p class="text-xs text-slate-400 truncate">Administrador</p>
+                <p class="text-sm font-bold text-white truncate">{{ admin_name }}</p>
+            </div>
+        </div>
+    </aside>
+
+    <main class="flex-grow p-6 md:p-10 lg:p-12 overflow-y-auto">
+        <div class="max-w-7xl mx-auto">
+            
+            <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
+                <div>
+                    <h1 class="text-4xl font-extrabold text-white tracking-tight">Análisis General</h1>
+                    <p class="text-slate-400 mt-1">Monitoreo de actividad de acceso en tiempo real.</p>
+                </div>
+                <div class="glass px-6 py-3 rounded-2xl border border-slate-700 text-right">
+                    <p id="current-date" class="text-sm font-semibold text-emerald-400"></p>
+                    <p id="current-time" class="text-2xl font-bold text-white"></p>
+                </div>
+            </header>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+                <div class="glass p-6 rounded-3xl border-l-4 border-l-blue-500 hover:scale-105 transition-transform">
+                    <p class="text-slate-400 text-xs font-bold uppercase tracking-widest">Accesos Hoy</p>
+                    <h2 class="text-3xl font-bold text-white mt-2">{{ accesos_hoy }}</h2>
+                </div>
+                <div class="glass p-6 rounded-3xl border-l-4 border-l-emerald-500 hover:scale-105 transition-transform">
+                    <p class="text-slate-400 text-xs font-bold uppercase tracking-widest">Usuarios Activos</p>
+                    <h2 class="text-3xl font-bold text-white mt-2">{{ total_users }}</h2>
+                </div>
+                <div class="glass p-6 rounded-3xl border-l-4 border-l-purple-500 hover:scale-105 transition-transform">
+                    <p class="text-slate-400 text-xs font-bold uppercase tracking-widest">Reservas Activas</p>
+                    <h2 class="text-3xl font-bold text-white mt-2">{{ reservas_pendientes }}</h2>
+                </div>
+                <div class="glass p-6 rounded-3xl border-l-4 border-l-red-500 hover:scale-105 transition-transform">
+                    <p class="text-slate-400 text-xs font-bold uppercase tracking-widest">Denegados Hoy</p>
+                    <h2 class="text-3xl font-bold text-white mt-2">{{ denegados_hoy }}</h2>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div class="lg:col-span-2 glass p-8 rounded-3xl shadow-2xl">
+                    <h3 class="text-xl font-bold text-white mb-6">Flujo de Tráfico (7 días)</h3>
+                    <div id="main-area-chart"></div>
+                </div>
+
+                <div class="glass p-8 rounded-3xl shadow-2xl flex flex-col">
+                    <h3 class="text-xl font-bold text-white mb-2">Tasa de Éxito</h3>
+                    <div id="radial-chart" class="mt-auto"></div>
+                    <p class="text-center text-sm text-slate-500">Relación Autorizados vs Denegados</p>
+                </div>
+
+                <div class="lg:col-span-3 glass p-8 rounded-3xl shadow-2xl">
+                    <h3 class="text-xl font-bold text-white mb-6">Reservas por Instalación</h3>
+                    <div id="bar-chart"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Reloj
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('current-date').innerText = now.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+            document.getElementById('current-time').innerText = now.toLocaleTimeString('es-ES');
+        }
+        setInterval(updateTime, 1000);
+        updateTime();
+
+        // Carga de Datos desde la API
+        async function loadCharts() {
+            const response = await fetch('/api/stats');
+            const data = await response.json();
+
+            // 1. Gráfica de Tráfico (Area)
+            new ApexCharts(document.querySelector("#main-area-chart"), {
+                series: [
+                    { name: 'Autorizados', data: data.autorizados },
+                    { name: 'Denegados', data: data.denegados }
+                ],
+                chart: { height: 350, type: 'area', toolbar: { show: false }, background: 'transparent' },
+                colors: ['#10b981', '#ef4444'],
+                stroke: { curve: 'smooth', width: 3 },
+                fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.1 } },
+                xaxis: { categories: data.labels, labels: { style: { colors: '#94a3b8' } } },
+                yaxis: { labels: { style: { colors: '#94a3b8' } } },
+                theme: { mode: 'dark' },
+                grid: { borderColor: 'rgba(148, 163, 184, 0.1)' }
+            }).render();
+
+            // 2. Gráfica Radial (Tasa de Éxito - AJUSTADA)
+            new ApexCharts(document.querySelector("#radial-chart"), {
+                series: [data.porcentaje_exito],
+                chart: { 
+                    height: 350, 
+                    type: 'radialBar',
+                    animations: {
+                        enabled: true,
+                        easing: 'easeinout',
+                        speed: 1500
+                    }
+                },
+                plotOptions: {
+                    radialBar: {
+                        startAngle: -135,
+                        endAngle: 135,
+                        hollow: {
+                            margin: 15,
+                            size: '75%',
+                            background: 'transparent',
+                            image: undefined,
+                        },
+                        track: {
+                            background: '#1e293b',
+                            strokeWidth: '100%',
+                            margin: 5,
+                        },
+                        dataLabels: {
+                            show: true,
+                            name: {
+                                show: true,
+                                fontSize: '14px',
+                                fontWeight: 600,
+                                color: '#94a3b8',
+                                offsetY: -10
+                            },
+                            value: {
+                                offsetY: 15,
+                                fontSize: '42px',
+                                fontWeight: 800,
+                                color: '#fff',
+                                formatter: function (val) {
+                                    return val + "%";
+                                }
+                            }
+                        }
+                    }
+                },
+                fill: {
+                    type: 'gradient',
+                    gradient: {
+                        shade: 'dark',
+                        type: 'horizontal',
+                        shadeIntensity: 0.5,
+                        gradientToColors: ['#34d399'], // Verde menta brillante
+                        inverseColors: true,
+                        opacityFrom: 1,
+                        opacityTo: 1,
+                        stops: [0, 100]
+                    }
+                },
+                stroke: {
+                    lineCap: 'round'
+                },
+                colors: ['#059669'], // Esmeralda base
+                labels: ['Efectividad'],
+                states: {
+                    hover: {
+                        filter: {
+                            type: 'none'
+                        }
+                    }
+                }
+            }).render();
+
+            // 3. Gráfica de Barras (Instalaciones)
+            new ApexCharts(document.querySelector("#bar-chart"), {
+                series: [{ name: 'Reservas', data: data.inst_counts }],
+                chart: { type: 'bar', height: 300, toolbar: { show: false } },
+                colors: ['#6366f1'],
+                plotOptions: { bar: { borderRadius: 8, columnWidth: '40%' } },
+                xaxis: { categories: data.inst_names, labels: { style: { colors: '#94a3b8' } } },
+                yaxis: { labels: { style: { colors: '#94a3b8' } } },
+                grid: { borderColor: 'rgba(148, 163, 184, 0.1)' },
+                theme: { mode: 'dark' }
+            }).render();
+        }
+
+        loadCharts();
+    </script>
+</body>
+</html>
