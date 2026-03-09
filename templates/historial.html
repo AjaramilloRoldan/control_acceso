@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Historial Pro - Control Acceso</title>
+    <link rel="icon" href="/static/pestana.png">   
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" type="text/css" href="https://npmcdn.com/flatpickr/dist/themes/dark.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://npmcdn.com/flatpickr/dist/l10n/es.js"></script>
+
+    <script>
+        tailwind.config = { 
+            theme: { 
+                extend: { 
+                    fontFamily: { sans: ['Plus Jakarta Sans', 'sans-serif'] },
+                    colors: {
+                        dark: { 950: '#020617', 900: '#0f172a', 800: '#1e293b', 700: '#334155' }
+                    }
+                } 
+            } 
+        }
+
+        let timeoutBusqueda = null;
+        let fp; // Instancia de Flatpickr
+
+        document.addEventListener('DOMContentLoaded', function() {
+            fp = flatpickr("#rango-fecha", {
+                mode: "range",
+                dateFormat: "Y-m-d",
+                altInput: true,
+                altFormat: "d M, Y",
+                locale: "es",
+                disableMobile: "true",
+                onClose: function(selectedDates) {
+                    if (selectedDates.length === 2) {
+                        document.getElementById("fecha-inicio").value = flatpickr.formatDate(selectedDates[0], "Y-m-d");
+                        document.getElementById("fecha-fin").value = flatpickr.formatDate(selectedDates[1], "Y-m-d");
+                    } else if (selectedDates.length === 1) {
+                        document.getElementById("fecha-inicio").value = flatpickr.formatDate(selectedDates[0], "Y-m-d");
+                        document.getElementById("fecha-fin").value = "";
+                    }
+                }
+            });
+        });
+
+        function abrirModal() {
+            document.getElementById("modal-filtros").classList.remove("hidden");
+            document.getElementById("modal-filtros").classList.add("flex");
+        }
+
+        function cerrarModal() {
+            document.getElementById("modal-filtros").classList.add("hidden");
+            document.getElementById("modal-filtros").classList.remove("flex");
+        }
+
+        function aplicarFiltrosAvanzados() {
+            ejecutarFiltroReal();
+            cerrarModal();
+            const tieneFiltros = document.getElementById("id-min").value || 
+                                document.getElementById("id-max").value || 
+                                document.getElementById("fecha-inicio").value;
+            document.getElementById("btn-limpiar-filtros").style.display = tieneFiltros ? "flex" : "none";
+        }
+
+        function limpiarFiltros() {
+            document.getElementById("id-min").value = "";
+            document.getElementById("id-max").value = "";
+            document.getElementById("fecha-inicio").value = "";
+            document.getElementById("fecha-fin").value = "";
+            if(fp) fp.clear();
+            document.getElementById("btn-limpiar-filtros").style.display = "none";
+            ejecutarFiltroReal();
+        }
+
+        function filtrarPorEstado(estado) {
+            const input = document.getElementById("filtro");
+            input.value = (estado === 'todos') ? '' : estado;
+            ejecutarFiltroReal();
+        }
+
+        function debouncedFiltrar() {
+            clearTimeout(timeoutBusqueda);
+            timeoutBusqueda = setTimeout(() => {
+                ejecutarFiltroReal();
+            }, 300);
+        }
+
+        function ejecutarFiltroReal() {
+            const busqueda = document.getElementById("filtro").value.toLowerCase();
+            const idMin = parseInt(document.getElementById("id-min").value) || 0;
+            const idMax = parseInt(document.getElementById("id-max").value) || Infinity;
+            const fechaInicio = document.getElementById("fecha-inicio").value;
+            const fechaFin = document.getElementById("fecha-fin").value;
+            
+            const filas = document.querySelectorAll(".log-row");
+            const mensajeVacio = document.getElementById("mensaje-vacio");
+            let contVisibles = 0;
+            
+            window.requestAnimationFrame(() => {
+                filas.forEach(fila => {
+                    const texto = fila.textContent.toLowerCase();
+                    const idFila = parseInt(fila.querySelector('.log-id').textContent.replace('#', ''));
+                    const fechaFila = fila.querySelector('.log-date').textContent.trim().split(' ')[0]; 
+
+                    let cumpleBusqueda = texto.includes(busqueda);
+                    let cumpleID = idFila >= idMin && idFila <= idMax;
+                    let cumpleFecha = true;
+
+                    if (fechaInicio && fechaFin) {
+                        cumpleFecha = fechaFila >= fechaInicio && fechaFila <= fechaFin;
+                    } else if (fechaInicio) {
+                        cumpleFecha = fechaFila === fechaInicio;
+                    }
+
+                    if (cumpleBusqueda && cumpleID && cumpleFecha) {
+                        fila.style.display = "";
+                        contVisibles++;
+                    } else {
+                        fila.style.display = "none";
+                    }
+                });
+                mensajeVacio.style.display = (contVisibles === 0) ? "flex" : "none";
+            });
+        }
+
+        function toggleTodos(masterCheckbox) {
+            const checkboxes = document.querySelectorAll(".row-checkbox");
+            checkboxes.forEach(cb => {
+                if (cb.closest('.log-row').style.display !== 'none') cb.checked = masterCheckbox.checked;
+            });
+        }
+
+        function obtenerDatosParaExportar() {
+    const seleccionados = document.querySelectorAll(".row-checkbox:checked");
+    let filasAExportar = [];
+    const targets = seleccionados.length > 0 ? seleccionados : document.querySelectorAll(".log-row:not([style*='display: none'])");
+    
+    targets.forEach(t => {
+        const fila = t.closest('.log-row') || t;
+        
+        // CORRECCIÓN: Buscamos específicamente el span que tiene el nombre, 
+        // no todo el contenedor 'log-user' que incluye la inicial.
+        const nombreUsuario = fila.querySelector('.log-user span').textContent.trim();
+        
+        filasAExportar.push({
+            id: fila.querySelector('.log-id').textContent.replace('#', ''),
+            usuario: nombreUsuario,
+            fecha: fila.querySelector('.log-date').textContent.trim(),
+            estado: fila.querySelector('.log-status').textContent.trim()
+        });
+    });
+    return filasAExportar;
+}
+
+        function exportToExcel() {
+            const datos = obtenerDatosParaExportar();
+            const ws = XLSX.utils.json_to_sheet(datos);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Historial");
+            XLSX.writeFile(wb, `Reporte_Excel_${new Date().getTime()}.xlsx`);
+        }
+
+        function exportToPDF() {
+            const datos = obtenerDatosParaExportar();
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const tableData = datos.map(d => [d.id, d.usuario, d.fecha, d.estado]);
+            doc.text("Reporte de Actividad", 14, 15);
+            doc.autoTable({ head: [['ID', 'Usuario', 'Fecha', 'Estado']], body: tableData, startY: 25, headStyles: { fillColor: [16, 185, 129] } });
+            doc.save(`Reporte_PDF_${new Date().getTime()}.pdf`);
+        }
+    </script>
+    <style>
+        .glass { background: rgba(30, 41, 59, 0.5); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.05); }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        .custom-checkbox { appearance: none; width: 18px; height: 18px; border: 2px solid #334155; border-radius: 4px; cursor: pointer; position: relative; }
+        .custom-checkbox:checked { background: #10b981; border-color: #10b981; }
+        .custom-checkbox:checked::after { content: '✓'; position: absolute; color: white; font-size: 12px; left: 3px; top: -1px; }
+        
+        /* Estilos Flatpickr Personalizados */
+        .flatpickr-calendar { background: #0f172a !important; border: 1px solid rgba(255,255,255,0.1) !important; border-radius: 1.5rem !important; box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.5) !important; }
+        .flatpickr-day.selected, .flatpickr-day.startRange, .flatpickr-day.endRange { background: #10b981 !important; border-color: #10b981 !important; }
+        .flatpickr-day.inRange { background: rgba(16, 185, 129, 0.15) !important; box-shadow: none !important; }
+        .flatpickr-months .flatpickr-month { color: white !important; fill: white !important; }
+        .flatpickr-current-month { color: white !important; }
+        .flatpickr-weekday { color: #64748b !important; font-weight: 700 !important; }
+    </style>
+</head>
+<body class="bg-dark-950 text-slate-200 min-h-screen flex flex-col md:flex-row font-sans selection:bg-emerald-500/30 overflow-hidden">
+
+     <aside class="w-full md:w-72 glass flex flex-col justify-between md:min-h-screen shadow-2xl relative z-20">
+        <div class="p-6">
+            <div class="flex items-center gap-3 mb-10">
+                <div class="w-10 h-10 bg-emerald-500 rounded-lg flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                    <span class="text-white font-bold text-xl">C</span>
+                </div>
+                <h3 class="text-xl font-bold text-white tracking-tight">Control de Accesos</h3>
+            </div>
+            
+            <nav class="flex flex-col gap-2">
+                <p class="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-2 ml-4">Menú Principal</p>
+                <a href="/dashboard" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl font-medium transition-all group">
+                    <span class="group-hover:scale-110 transition-transform">🏠</span> Dashboard
+                </a>
+                <a href="/usuarios" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl font-medium transition-all group">
+                    <span class="group-hover:scale-110 transition-transform">👥</span> Usuarios
+                </a>
+                <a href="/historial" class="flex items-center gap-3 px-4 py-3 bg-emerald-500/10 text-emerald-400 rounded-xl font-semibold border border-emerald-500/20">
+                    <span class="scale-110">📝</span> Historial
+                </a>
+            </nav>
+        <div class="mt-4 pt-4 border-t border-white/5">
+                    <a href="/logout" class="flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-red-500/10 rounded-xl font-medium transition-all group">
+                        <span class="group-hover:rotate-12 transition-transform">🔒</span> Cerrar Sesión
+                    </a>
+                </div>
+            </nav>
+             <div class="p-6 m-4 glass rounded-2xl flex items-center gap-4">
+            <img src="https://cdn-icons-png.flaticon.com/512/1946/1946429.png" class="w-10 h-10 rounded-full border border-slate-600">
+            <div class="overflow-hidden">
+                <p class="text-xs text-slate-400 truncate">Administrador</p>
+                <p class="text-sm font-bold text-white truncate">{{ admin_name }}</p>
+            </div>
+        </div>
+    </aside>
+
+    <main class="flex-grow p-4 md:p-8 lg:p-10 flex flex-col h-screen">
+        <div class="max-w-7xl mx-auto w-full flex flex-col h-full">
+            <header class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
+                <div>
+                    <h1 class="text-3xl font-black text-white tracking-tight">Registro de Actividad</h1>
+                    <p class="text-slate-500 text-sm">Visualización de alta densidad.</p>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="abrirModal()" class="p-2.5 bg-slate-900 hover:bg-slate-800 text-slate-400 rounded-xl border border-white/5 transition-all">⚙️ Filtros por Rango</button>
+                    <button onclick="exportToExcel()" class="p-2.5 bg-slate-900 hover:bg-slate-800 text-slate-400 rounded-xl border border-white/5 transition-all">Exportar Excel 📊</button>
+                    <button onclick="exportToPDF()" class="p-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 rounded-xl border border-emerald-500/20 transition-all">Descargar PDF 📄</button>
+                </div>
+            </header>
+
+            <button id="btn-limpiar-filtros" onclick="limpiarFiltros()" class="hidden mb-4 items-center gap-2 self-start px-4 py-2 bg-red-500/10 text-red-400 text-xs font-bold rounded-lg border border-red-500/20 hover:bg-red-500/20 transition-all">
+                ✕ Limpiar Filtros
+            </button>
+
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
+                <div class="lg:col-span-2 relative">
+                    <input type="text" id="filtro" onkeyup="debouncedFiltrar()" autocomplete="off" placeholder="Buscar..." class="w-full pl-12 pr-4 py-3 bg-slate-900 border border-white/5 rounded-2xl text-sm text-white focus:outline-none focus:border-emerald-500/50">
+                    <span class="absolute left-4 top-3.5 opacity-30">🔍</span>
+                </div>
+                <div class="flex gap-2 lg:col-span-2">
+                    <button onclick="filtrarPorEstado('todos')" class="flex-1 py-3 bg-slate-800 hover:bg-slate-700 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all">Todos</button>
+                    <button onclick="filtrarPorEstado('Autorizado')" class="flex-1 py-3 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 border border-emerald-500/20 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all">Autorizado</button>
+                    <button onclick="filtrarPorEstado('Denegado')" class="flex-1 py-3 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all">Denegado</button>
+                </div>
+            </div>
+
+            <div class="glass rounded-[2rem] flex-grow overflow-hidden flex flex-col shadow-2xl mb-4 relative">
+                <div class="grid grid-cols-12 gap-4 px-8 py-4 bg-white/[0.02] border-b border-white/5 text-[10px] uppercase tracking-[0.2em] font-black text-slate-500 items-center">
+                    <div class="col-span-1"><input type="checkbox" onchange="toggleTodos(this)" class="custom-checkbox"></div>
+                    <div class="col-span-1">ID</div>
+                    <div class="col-span-3">Usuario</div>
+                    <div class="col-span-4">Fecha y Hora</div>
+                    <div class="col-span-3 text-right">Estado</div>
+                </div>
+
+                <div class="flex-grow overflow-y-auto custom-scrollbar px-2 py-2 relative">
+                    <div id="mensaje-vacio" class="hidden absolute inset-0 flex-col items-center justify-center text-center p-10 z-10">
+                        <h2 class="text-xl font-bold text-white mb-2">Sin coincidencias</h2>
+                        <p class="text-slate-500 text-sm">Prueba ajustando los rangos.</p>
+                    </div>
+
+                    {% for log in logs %}
+                    <div class="log-row grid grid-cols-12 gap-4 px-6 py-3 items-center row-hover rounded-xl transition-all border-b border-white/[0.02] last:border-0">
+                        <div class="col-span-1 flex items-center"><input type="checkbox" class="custom-checkbox row-checkbox"></div>
+                        <div class="col-span-1 log-id font-mono text-[10px] text-slate-600">#{{ log.id }}</div>
+                        <div class="col-span-3 log-user">
+                            <div class="flex items-center gap-3">
+                                <div class="w-7 h-7 rounded-lg bg-emerald-500/10 flex items-center justify-center text-[10px] font-bold text-emerald-500 border border-emerald-500/20">{{ log.usuario[:1]|upper }}</div>
+                                <span class="text-sm font-semibold text-slate-200">{{ log.usuario }}</span>
+                            </div>
+                        </div>
+                        <div class="col-span-4 log-date text-xs text-slate-500 font-medium italic">{{ log.fecha }}</div>
+                        <div class="col-span-3 log-status text-right">
+                            <span class="inline-block px-3 py-1 text-[10px] font-black rounded-lg border uppercase {{ 'bg-emerald-500/5 text-emerald-400 border-emerald-500/10' if 'Autorizado' in log.estado else 'bg-red-500/5 text-red-400 border-red-500/10' }}">
+                                {{ 'Autorizado' if 'Autorizado' in log.estado else 'Denegado' }}
+                            </span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="modal-filtros" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] items-center justify-center p-4">
+        <div class="glass w-full max-w-md rounded-[2.5rem] border border-white/10 shadow-3xl p-8 overflow-hidden">
+            <div class="flex justify-between items-center mb-8">
+                <h2 class="text-2xl font-black text-white">Filtros por Rango</h2>
+                <button onclick="cerrarModal()" class="text-slate-400 hover:text-white text-2xl">✕</button>
+            </div>
+            
+            <div class="space-y-6">
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="space-y-2">
+                        <label class="text-[10px] uppercase font-bold text-slate-500 ml-1">ID Mínimo</label>
+                        <input type="number" id="id-min" placeholder="0" class="w-full bg-slate-900 border border-white/5 rounded-xl px-4 py-3 text-sm focus:border-emerald-500/50 outline-none">
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-[10px] uppercase font-bold text-slate-500 ml-1">ID Máximo</label>
+                        <input type="number" id="id-max" placeholder="9999" class="w-full bg-slate-900 border border-white/5 rounded-xl px-4 py-3 text-sm focus:border-emerald-500/50 outline-none">
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <label class="text-[10px] uppercase font-bold text-slate-500 ml-1">Seleccionar Periodo (Rango)</label>
+                    <div class="relative">
+                        <input type="text" id="rango-fecha" placeholder="Selecciona fechas..." 
+                               class="w-full bg-slate-900 border border-white/5 rounded-xl px-10 py-3 text-sm focus:border-emerald-500/50 outline-none cursor-pointer">
+                        <span class="absolute left-4 top-3.5 opacity-30 text-xs">📅</span>
+                    </div>
+                    <input type="hidden" id="fecha-inicio">
+                    <input type="hidden" id="fecha-fin">
+                </div>
+
+                <div class="pt-4 flex gap-3">
+                    <button onclick="cerrarModal()" class="flex-1 py-4 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-2xl font-bold uppercase text-[10px] tracking-widest transition-all">Cancelar</button>
+                    <button onclick="aplicarFiltrosAvanzados()" class="flex-1 py-4 bg-emerald-500 hover:bg-emerald-400 text-white shadow-lg shadow-emerald-500/20 rounded-2xl font-bold uppercase text-[10px] tracking-widest transition-all">Aplicar Filtros</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Gestión de Usuarios - Control de Acceso</title>
+    <link rel="icon" href="/static/pestana.png">   
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = { 
+            theme: { 
+                extend: { 
+                    fontFamily: { sans: ['Plus Jakarta Sans', 'sans-serif'] },
+                    colors: {
+                        dark: { 900: '#0f172a', 800: '#1e293b', 700: '#334155' }
+                    }
+                } 
+            } 
+        }
+    </script>
+    <style>
+        html { scroll-behavior: smooth; }
+        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); }
+        .user-card:hover { transform: translateY(-4px); border-color: rgba(16, 185, 129, 0.4); }
+        body::-webkit-scrollbar { width: 8px; }
+        body::-webkit-scrollbar-track { background: #0f172a; }
+        body::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        
+        @keyframes scaleIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .animate-scale { animation: scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+
+        .tooltip-container { position: relative; }
+        .tooltip-content {
+            position: absolute;
+            bottom: calc(100% + 10px);
+            left: 50%;
+            transform: translateX(-50%) translateY(5px);
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.2s ease;
+            z-index: 100;
+        }
+        .tooltip-container:hover .tooltip-content {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+    </style>
+</head>
+<body class="bg-dark-900 text-slate-200 min-h-screen flex flex-col md:flex-row font-sans selection:bg-emerald-500/30">
+
+    <aside class="w-full md:w-72 glass flex flex-col justify-between md:min-h-screen shadow-2xl relative z-20">
+        <div class="p-6">
+            <div class="flex items-center gap-3 mb-10">
+                <div class="w-10 h-10 bg-emerald-500 rounded-lg flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                    <span class="text-white font-bold text-xl">C</span>
+                </div>
+                <h3 class="text-xl font-bold text-white tracking-tight">Control de Accesos</h3>
+            </div>
+            
+            <nav class="flex flex-col gap-2">
+                <p class="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-2 ml-4">Menú Principal</p>
+                <a href="/dashboard" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl font-medium transition-all group">
+                    <span class="group-hover:scale-110 transition-transform">🏠</span> Dashboard
+                </a>
+                <a href="/usuarios" class="flex items-center gap-3 px-4 py-3 bg-emerald-500/10 text-emerald-400 rounded-xl font-semibold border border-emerald-500/20 transition-all">
+                    <span class="scale-110">👥</span> Usuarios
+                </a>
+                <a href="/historial" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl font-medium transition-all group">
+                    <span class="group-hover:scale-110 transition-transform">📝</span> Historial
+                </a>
+            </nav>
+        <div class="mt-4 pt-4 border-t border-white/5">
+                    <a href="/logout" class="flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-red-500/10 rounded-xl font-medium transition-all group">
+                        <span class="group-hover:rotate-12 transition-transform">🔒</span> Cerrar Sesión
+                    </a>
+                </div>
+            </nav>
+             <div class="p-6 m-4 glass rounded-2xl flex items-center gap-4">
+            <img src="https://cdn-icons-png.flaticon.com/512/1946/1946429.png" class="w-10 h-10 rounded-full border border-slate-600">
+            <div class="overflow-hidden">
+                <p class="text-xs text-slate-400 truncate">Administrador</p>
+                <p class="text-sm font-bold text-white truncate">{{ admin_name }}</p>
+            </div>
+        </div>
+    </aside>
+
+    <main class="flex-grow p-6 md:p-10 lg:p-12 overflow-y-auto">
+        <div class="max-w-6xl mx-auto">
+            
+            <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
+                <div>
+                    <h1 class="text-4xl font-extrabold text-white tracking-tight">Gestión de Usuarios</h1>
+                    <p class="text-slate-400 mt-1">Administra los permisos y credenciales RFID de la comunidad.</p>
+                </div>
+                <div class="flex gap-3">
+                    <a href="#registro-seccion" class="px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-900 rounded-2xl font-bold transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2">
+                        <span>➕</span> Nuevo Registro
+                    </a>
+                </div>
+            </header>
+
+            <section class="mb-12">
+                <div class="flex items-center justify-between mb-8">
+                    <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                        <span class="w-2 h-8 bg-emerald-500 rounded-full"></span>
+                        Comunidad Registrada
+                    </h2>
+                    <span class="px-4 py-1 bg-emerald-500/10 text-emerald-400 text-xs font-bold rounded-full border border-emerald-500/20 uppercase">
+                        {{ usuarios|length }} Usuarios Totales
+                    </span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {% for usuario in usuarios %}
+                    <div class="glass user-card p-6 rounded-3xl transition-all duration-300 relative group/card">
+                        <div class="flex items-start justify-between mb-4">
+                            <div class="flex items-center gap-4">
+                                <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold text-xl shadow-inner">
+                                    {{ usuario.name[:1] }}
+                                </div>
+                                <div>
+                                    <h3 class="text-white font-bold leading-tight">{{ usuario.name }}</h3>
+                                    <p class="text-slate-500 text-xs mt-1">ID: #{{ usuario.id }}</p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex gap-2">
+                                <div class="tooltip-container">
+                                    <a href="/editar_usuario/{{ usuario.id }}" class="p-2.5 bg-slate-800/50 hover:bg-blue-500/20 text-blue-400 rounded-xl transition-all border border-white/5 flex items-center justify-center">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                        </svg>
+                                    </a>
+                                    <div class="tooltip-content">
+                                        <span class="px-3 py-1.5 bg-blue-600 text-white text-[10px] font-extrabold rounded-lg shadow-xl whitespace-nowrap uppercase tracking-wider">Editar</span>
+                                    </div>
+                                </div>
+
+                                <div class="tooltip-container">
+                                    <button onclick="openConfirmDelete('/eliminar_usuario/{{ usuario.id }}')" class="p-2.5 bg-slate-800/50 hover:bg-red-500/20 text-red-400 rounded-xl transition-all border border-white/5 flex items-center justify-center">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                    </button>
+                                    <div class="tooltip-content">
+                                        <span class="px-3 py-1.5 bg-red-600 text-white text-[10px] font-extrabold rounded-lg shadow-xl whitespace-nowrap uppercase tracking-wider">Eliminar</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between text-sm bg-slate-900/50 p-3 rounded-2xl border border-white/5">
+                                <span class="text-slate-500 font-medium">RFID Tag</span>
+                                <span class="font-mono text-emerald-400 font-bold tracking-wider">{{ usuario.rfid }}</span>
+                            </div>
+                            <div class="flex items-center justify-between text-sm px-1">
+                                <span class="text-slate-500 italic">@{{ usuario.username }}</span>
+                                <span class="flex h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]"></span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section id="registro-seccion" class="glass p-8 md:p-10 rounded-[2.5rem] shadow-2xl relative overflow-hidden scroll-mt-24">
+                <div class="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 blur-[100px] rounded-full -mr-20 -mt-20"></div>
+                <h3 class="text-2xl font-bold text-white mb-8 flex items-center gap-3">
+                    <span class="text-emerald-500 text-3xl">👤</span> Registro de Nueva Credencial
+                </h3>
+
+                <form action="/agregar_usuario" method="post" novalidate class="relative z-10 space-y-8">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div class="group">
+                            <label for="name" class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 ml-1 group-focus-within:text-emerald-400 transition-colors">Nombre del Titular</label>
+                            <input id="name" type="text" name="name" value="{{ request.form.name }}" required 
+                                class="w-full px-5 py-4 bg-slate-900/50 border border-slate-700 rounded-2xl text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/10 transition-all" 
+                                placeholder="Ej: Carlos Mesa">
+                        </div>
+                        <div class="group">
+                            <label for="rfid" class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 ml-1 group-focus-within:text-emerald-400 transition-colors">Código de Tarjeta (RFID)</label>
+                            <input id="rfid" type="text" name="rfid" value="{{ request.form.rfid }}" required 
+                                class="w-full px-5 py-4 bg-slate-900/50 border border-slate-700 rounded-2xl text-white font-mono placeholder-slate-600 focus:outline-none focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/10 transition-all" 
+                                placeholder="HEX: A1-B2-C3-D4">
+                        </div>
+                        <div class="group">
+                            <label for="username" class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 ml-1 group-focus-within:text-emerald-400 transition-colors">Nombre de Usuario</label>
+                            <input id="username" type="text" name="username" value="{{ request.form.username }}" required 
+                                class="w-full px-5 py-4 bg-slate-900/50 border border-slate-700 rounded-2xl text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/10 transition-all" 
+                                placeholder="nombre_usuario">
+                        </div>
+                        <div class="group">
+                            <label for="password" class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 ml-1 group-focus-within:text-emerald-400 transition-colors">Contraseña de Acceso</label>
+                            <input id="password" type="password" name="password" required 
+                                class="w-full px-5 py-4 bg-slate-900/50 border border-slate-700 rounded-2xl text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/10 transition-all" 
+                                placeholder="••••••••">
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col md:flex-row items-center justify-between gap-6 pt-6 border-t border-white/5">
+                        <button type="submit" class="w-full md:w-auto bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-extrabold py-4 px-12 rounded-2xl transition-all shadow-xl shadow-emerald-500/20 active:scale-95">
+                            Registrar Usuario
+                        </button>
+                    </div>
+                </form>
+            </section>
+        </div>
+    </main>
+
+    <div id="notificationModal" class="fixed inset-0 z-[110] flex items-center justify-center hidden bg-black/60 backdrop-blur-sm p-4">
+        <div class="glass max-w-sm w-full p-8 rounded-[2.5rem] text-center animate-scale shadow-2xl">
+            <div id="iconContainer" class="w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center text-4xl shadow-lg"></div>
+            <h2 id="modalTitle" class="text-2xl font-bold text-white mb-2"></h2>
+            <p id="modalMessage" class="text-slate-400 mb-6"></p>
+            <button onclick="closeModal('notificationModal')" class="w-full py-4 bg-white/5 hover:bg-white/10 rounded-2xl font-bold transition-all border border-white/5">Entendido</button>
+        </div>
+    </div>
+
+    <div id="confirmDeleteModal" class="fixed inset-0 z-[110] flex items-center justify-center hidden bg-black/80 backdrop-blur-md p-4">
+    <div class="glass max-w-sm w-full p-8 rounded-[2.5rem] text-center animate-scale shadow-2xl border-red-500/20">
+        <div class="w-20 h-20 mx-auto mb-4 rounded-full bg-red-500/20 text-red-500 flex items-center justify-center text-4xl border-4 border-red-500/30">⚠️</div>
+        <h2 class="text-2xl font-bold text-white mb-2">¿Estás seguro?</h2>
+        <p class="text-slate-400 mb-8 text-sm">Esta acción eliminará al usuario y su acceso de forma permanente.</p>
+              <div class="flex gap-3">
+          <button onclick="closeModal('confirmDeleteModal')" class="flex-1 py-4 bg-white/5 hover:bg-white/10 rounded-2xl font-bold transition-all border border-white/5">
+              Cancelar
+          </button>
+          
+          <a id="deleteAnchor" href="#" class="flex-1 py-4 bg-red-600 hover:bg-red-500 text-white rounded-2xl font-bold transition-all shadow-lg shadow-red-600/20 flex items-center justify-center">
+              Eliminar
+          </a>
+      </div>
+    </div>
+</div>
+
+    <script>
+        const notificationModal = document.getElementById('notificationModal');
+        const confirmDeleteModal = document.getElementById('confirmDeleteModal');
+
+        function showModal(type, msg) {
+            notificationModal.classList.remove('hidden');
+            document.getElementById('modalMessage').innerText = msg;
+            const icon = document.getElementById('iconContainer');
+            
+            if(type === 'success') {
+                icon.innerHTML = '✔️';
+                icon.className = "w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center text-4xl bg-emerald-500/20 text-emerald-500 border-4 border-emerald-500/30 shadow-lg";
+                document.getElementById('modalTitle').innerText = "¡Hecho!";
+            } else {
+                icon.innerHTML = '❌';
+                icon.className = "w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center text-4xl bg-red-500/20 text-red-500 border-4 border-red-500/30 shadow-lg";
+                document.getElementById('modalTitle').innerText = "Error";
+            }
+        }
+
+          function openConfirmDelete(url) {
+            confirmDeleteModal.classList.remove('hidden');
+            // Asigna la URL al enlace de eliminación
+            document.getElementById('deleteAnchor').href = url;
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hidden');
+        }
+
+        window.onload = () => {
+            {% with messages = get_flashed_messages(with_categories=true) %}
+              {% if messages %}
+                {% for category, message in messages %}
+                    showModal('{{ category }}', '{{ message }}');
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+        }
+    </script>
+</body>
+</html>

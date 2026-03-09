@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Instalaciones - Control Acceso</title>
+    <link rel="icon" href="/static/pestana.png">   
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://npmcdn.com/flatpickr/dist/l10n/es.js"></script>
+
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; scroll-behavior: smooth; }
+        .glass-header { background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(12px); }
+        .glass-card { background: rgba(30, 41, 59, 0.4); backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.05); }
+        .glass-modal { background: rgba(15, 23, 42, 0.98); backdrop-filter: blur(20px); max-height: 98vh; overflow-y: auto; }
+        
+        /* Ajuste para que el calendario no flote con espacio a la derecha */
+        .flatpickr-calendar { 
+            background: #1e293b !important; 
+            border: 1px solid rgba(255,255,255,0.1) !important; 
+            box-shadow: none !important;
+            margin: 0 auto !important; 
+        }
+        .flatpickr-day.selected { background: #10b981 !important; border-color: #10b981 !important; }
+        
+        .time-pill { transition: all 0.2s ease; border: 1px solid rgba(255,255,255,0.1); cursor: pointer; }
+        .time-pill.selected { background: #10b981 !important; color: #0f172a !important; font-weight: 800; border-color: #10b981; }
+        .time-pill.occupied { opacity: 0.2; cursor: not-allowed; background: #0f172a; text-decoration: line-through; border: none; }
+
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+
+        /* Animación Check */
+        .check-container { width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; background: rgba(16, 185, 129, 0.1); border-radius: 50%; margin: 0 auto 20px; }
+        .check-icon { stroke-dasharray: 100; stroke-dashoffset: 100; animation: dash 0.6s ease-in-out forwards; }
+        @keyframes dash { to { stroke-dashoffset: 0; } }
+        
+        .tooltip-trigger:hover .tooltip { opacity: 1; transform: translateY(-10px); }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-200 min-h-screen flex flex-col">
+
+    <header class="glass-header border-b border-white/5 px-6 py-6 flex flex-col md:flex-row items-center justify-between gap-4 sticky top-0 z-40">
+        <div>
+            <h1 class="text-2xl md:text-3xl font-bold text-white tracking-tight">Bienvenido, {{ nombre_usuario }}</h1>
+            <p class="text-sm text-emerald-400 mt-1 font-medium">Gestión Profesional de Reservas</p>
+        </div>
+        <a href="/logout" class="px-6 py-2 bg-red-500/10 border border-red-500/20 rounded-full text-sm font-bold text-red-400 hover:bg-red-500 hover:text-white transition-all">🚪 Cerrar Sesión</a>
+    </header>
+
+    <main class="flex-grow max-w-7xl w-full mx-auto p-6 md:p-10">
+        {% if mis_reservas %}
+        <section class="mb-12">
+            <h2 class="text-xl font-bold text-white mb-6 flex items-center gap-3">
+                <span class="w-2 h-8 bg-emerald-500 rounded-full"></span>
+                Tus Reservas Activas
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {% for res in mis_reservas %}
+                <div class="glass-card p-5 rounded-2xl flex justify-between items-center group hover:border-emerald-500/30 transition-all text-sm">
+                    <div>
+                        <h4 class="text-white font-bold group-hover:text-emerald-400 transition-colors">{{ res.instalacion.nombre }}</h4>
+                        <p class="text-[10px] text-slate-500 uppercase font-bold tracking-widest mt-1">{{ res.fecha_reserva.strftime('%d %B, %Y') }}</p>
+                        <p class="text-sm text-emerald-400 font-semibold mt-1">{{ res.hora_inicio.strftime('%H:%M') }} — {{ res.hora_fin.strftime('%H:%M') }}</p>
+                    </div>
+                    <div class="relative tooltip-trigger">
+                        <span class="tooltip opacity-0 transition-all absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] py-1 px-3 rounded-md pointer-events-none whitespace-nowrap border border-white/10">Eliminar Reserva</span>
+                        <button onclick="confirmDelete('{{ res.id }}')" class="bg-slate-800 text-slate-400 p-3 rounded-xl hover:bg-red-500 hover:text-white transition-all shadow-lg">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+
+        <h2 class="text-3xl font-extrabold text-white mb-8 tracking-tight">Nuestras Instalaciones</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {% for inst in instalaciones %}
+            <article class="glass-card rounded-3xl overflow-hidden group hover:-translate-y-2 transition-all duration-300">
+                <div class="h-56 relative overflow-hidden">
+                    <img src="{{ inst.imagen }}" class="w-full h-full object-cover">
+                    <div class="absolute inset-0 bg-gradient-to-t from-slate-950"></div>
+                </div>
+                <div class="p-8">
+                    <h3 class="text-2xl font-bold text-white mb-3">{{ inst.nombre }}</h3>
+                    <button onclick="openBookingModal('{{ inst.id }}', '{{ inst.nombre }}')" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-4 rounded-2xl shadow-xl active:scale-95 transition-all">
+                        Reservar Espacio
+                    </button>
+                </div>
+            </article>
+            {% endfor %}
+        </div>
+    </main>
+
+    <div id="bookingModal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md">
+        <div class="glass-modal w-full max-w-4xl rounded-[2.5rem] border border-white/10 shadow-2xl overflow-hidden">
+            <div class="p-6 border-b border-white/5 flex justify-between items-center">
+                <h3 id="modalTitle" class="text-xl font-bold text-white"></h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-white text-2xl">✕</button>
+            </div>
+            
+            <form action="/reservar" method="POST" class="p-6 grid grid-cols-1 md:grid-cols-12 gap-6">
+                <input type="hidden" name="instalacion_id" id="modal_inst_id">
+                <input type="hidden" name="hora_inicio" id="input_hora_inicio">
+                <input type="hidden" name="hora_fin" id="input_hora_fin">
+                
+                <div class="md:col-span-5">
+                    <label class="block text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-3">1. FECHA</label>
+                    <div id="calendarContainer" class="rounded-2xl bg-slate-900/40 border border-white/5 overflow-hidden"></div>
+                    <input type="text" name="fecha" id="datePicker" class="hidden" required>
+                </div>
+
+                <div class="md:col-span-7 flex flex-col gap-4">
+                    <div>
+                        <label class="block text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-2">2. HORA DE INICIO</label>
+                        <div id="startContainer" class="grid grid-cols-4 gap-2 max-h-[140px] overflow-y-auto pr-2 custom-scrollbar"></div>
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-2">3. HORA DE FINALIZACIÓN</label>
+                        <div id="endContainer" class="grid grid-cols-4 gap-2 max-h-[140px] overflow-y-auto pr-2 custom-scrollbar"></div>
+                    </div>
+
+                    <div id="selectionSummary" class="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4 hidden">
+                        <p class="text-[9px] text-emerald-400 font-bold uppercase tracking-widest">RANGO SELECCIONADO:</p>
+                        <span id="selectedLabel" class="text-xl text-white font-black tracking-tight"></span>
+                    </div>
+
+                    <button type="submit" id="btnSubmit" disabled class="w-full bg-emerald-500 text-slate-950 font-bold py-4 rounded-xl opacity-50 cursor-not-allowed transition-all text-sm uppercase tracking-widest">
+                        Confirmar Reserva
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="successBadge" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
+        <div class="bg-slate-900 border border-emerald-500/30 p-10 rounded-[2.5rem] shadow-2xl text-center max-w-sm w-full">
+            <div class="check-container">
+                <svg class="w-10 h-10 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path class="check-icon" stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
+                </svg>
+            </div>
+            <h3 class="text-white text-xl font-bold mb-2">Reserva eliminada exitosamente</h3>
+            <p class="text-slate-400 text-sm">El espacio ha sido liberado.</p>
+        </div>
+    </div>
+
+    <script>
+        let fp;
+        let startHour = null;
+        let endHour = null;
+        let currentBusySlots = [];
+        const OPEN_TIME = 8;
+        const CLOSE_TIME = 22;
+
+        function openBookingModal(id, nombre) {
+            document.getElementById('modal_inst_id').value = id;
+            document.getElementById('modalTitle').innerText = `Reserva en ${nombre}`;
+            document.getElementById('bookingModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            resetSelection();
+            
+            if (fp) fp.destroy();
+            fp = flatpickr("#datePicker", {
+                inline: true,
+                appendTo: document.getElementById('calendarContainer'),
+                locale: "es",
+                minDate: "today",
+                onChange: (selectedDates, dateStr) => fetchDisponibilidad(id, dateStr)
+            });
+        }
+
+        async function fetchDisponibilidad(instId, fecha) {
+            const container = document.getElementById('startContainer');
+            container.innerHTML = '<div class="col-span-4 text-center py-4 text-emerald-500 animate-pulse text-[10px] font-bold">CARGANDO...</div>';
+            
+            const response = await fetch(`/api/disponibilidad/${instId}/${fecha}`);
+            const busy = await response.json();
+            
+            currentBusySlots = [];
+            busy.forEach(b => {
+                let s = parseInt(b.from.split(':')[0]);
+                let e = parseInt(b.to.split(':')[0]);
+                for(let i=s; i<e; i++) currentBusySlots.push(i);
+            });
+
+            renderStartHours();
+            resetEnd();
+        }
+
+        function renderStartHours() {
+            const container = document.getElementById('startContainer');
+            container.innerHTML = '';
+            for(let h = OPEN_TIME; h < CLOSE_TIME; h++) {
+                const isOccupied = currentBusySlots.includes(h);
+                const btn = createTimeBtn(h, isOccupied, () => selectStart(h));
+                container.appendChild(btn);
+            }
+        }
+
+        function selectStart(h) {
+            startHour = h;
+            document.getElementById('input_hora_inicio').value = `${h.toString().padStart(2,'0')}:00`;
+            document.querySelectorAll('#startContainer .time-pill').forEach(el => {
+                el.classList.toggle('selected', parseInt(el.dataset.hour) === h);
+            });
+            renderEndHours(h);
+            updateUI();
+        }
+
+        function renderEndHours(start) {
+            const container = document.getElementById('endContainer');
+            container.innerHTML = '';
+            for(let h = start + 1; h <= CLOSE_TIME; h++) {
+                let isBlocked = false;
+                for(let i = start; i < h; i++) {
+                    if(currentBusySlots.includes(i)) isBlocked = true;
+                }
+                const btn = createTimeBtn(h, isBlocked, () => selectEnd(h));
+                container.appendChild(btn);
+            }
+        }
+
+        function selectEnd(h) {
+            endHour = h;
+            document.getElementById('input_hora_fin').value = `${h.toString().padStart(2,'0')}:00`;
+            document.querySelectorAll('#endContainer .time-pill').forEach(el => {
+                el.classList.toggle('selected', parseInt(el.dataset.hour) === h);
+            });
+            updateUI();
+        }
+
+        function createTimeBtn(h, disabled, callback) {
+            const div = document.createElement('div');
+            div.dataset.hour = h;
+            div.className = `time-pill p-2 rounded-lg text-center text-[11px] font-bold bg-slate-900/40 border border-white/5 ${disabled ? 'occupied' : 'hover:border-emerald-500'}`;
+            div.innerText = `${h.toString().padStart(2,'0')}:00`;
+            if(!disabled) div.onclick = callback;
+            return div;
+        }
+
+        function updateUI() {
+            const btn = document.getElementById('btnSubmit');
+            const summary = document.getElementById('selectionSummary');
+            const label = document.getElementById('selectedLabel');
+
+            if (startHour !== null && endHour !== null) {
+                label.innerText = `${startHour.toString().padStart(2,'0')}:00 a ${endHour.toString().padStart(2,'0')}:00`;
+                summary.classList.remove('hidden');
+                btn.disabled = false;
+                btn.className = "w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-4 rounded-xl shadow-lg shadow-emerald-500/20 cursor-pointer transition-all text-sm uppercase tracking-widest opacity-100";
+            } else if (startHour !== null) {
+                summary.classList.add('hidden');
+                btn.disabled = true;
+                btn.className = "w-full bg-slate-800 text-slate-500 font-bold py-4 rounded-xl opacity-50 cursor-not-allowed text-sm uppercase tracking-widest";
+            }
+        }
+
+        function resetEnd() {
+            endHour = null;
+            document.getElementById('endContainer').innerHTML = '<p class="col-span-4 text-[9px] text-slate-500 text-center py-4 italic">Elige inicio</p>';
+            updateUI();
+        }
+
+        function resetSelection() {
+            startHour = null;
+            endHour = null;
+            document.getElementById('startContainer').innerHTML = '';
+            resetEnd();
+        }
+
+        function closeModal() {
+            document.getElementById('bookingModal').classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }
+
+        async function confirmDelete(resId) {
+            if (confirm('¿Deseas cancelar esta reserva?')) {
+                const response = await fetch(`/cancelar_reserva/${resId}`);
+                if (response.ok) {
+                    const badge = document.getElementById('successBadge');
+                    badge.classList.remove('hidden');
+                    setTimeout(() => { window.location.reload(); }, 2000);
+                }
+            }
+        }
+    </script>
+</body>
+</html>

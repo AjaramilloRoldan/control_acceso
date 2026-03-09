@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="es" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Control de Acceso | Next-Gen Security</title>
+    <link rel="icon" href="/static/pestana.png">   
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: { 
+                    fontFamily: { sans: ['Plus Jakarta Sans', 'sans-serif'] },
+                    animation: {
+                        'pulse-slow': 'pulse 6s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'blob': 'blob 7s infinite',
+                        'float': 'float 3s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        blob: {
+                            "0%": { transform: "translate(0px, 0px) scale(1)" },
+                            "33%": { transform: "translate(30px, -50px) scale(1.1)" },
+                            "66%": { transform: "translate(-20px, 20px) scale(0.9)" },
+                            "100%": { transform: "translate(0px, 0px) scale(1)" },
+                        },
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #020617; }
+        .bg-grid {
+            background-size: 50px 50px;
+            background-image: linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+                              linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+        }
+        .glass-card {
+            background: rgba(15, 23, 42, 0.3);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            position: relative;
+            overflow: hidden;
+        }
+        .text-gradient {
+            background: linear-gradient(to right, #ffffff, #10b981, #34d399);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .hero-glow {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 500px; height: 500px;
+            background: radial-gradient(circle, rgba(16, 185, 129, 0.15) 0%, transparent 70%);
+            filter: blur(60px);
+            z-index: -1;
+        }
+        /* Efecto Spotlight que sigue al mouse */
+        .spotlight {
+            pointer-events: none;
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(600px circle at var(--x) var(--y), rgba(16, 185, 129, 0.08), transparent 40%);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .glass-card:hover .spotlight { opacity: 1; }
+    </style>
+</head>
+<body class="text-slate-200 overflow-x-hidden selection:bg-emerald-500/30 selection:text-emerald-400">
+
+    <div class="fixed inset-0 bg-grid pointer-events-none z-0"></div>
+    <div class="fixed top-0 -left-4 w-72 h-72 bg-emerald-500/10 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob"></div>
+    <div class="fixed top-0 -right-4 w-72 h-72 bg-blue-500/10 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-2000"></div>
+
+    <header class="relative min-h-screen flex flex-col items-center justify-center px-6 text-center z-10">
+        <div class="hero-glow"></div>
+        <div data-aos="fade-up" data-aos-duration="1000">
+            <span class="inline-block px-4 py-1.5 mb-6 text-xs font-extrabold tracking-[0.2em] text-emerald-400 uppercase bg-emerald-500/10 border border-emerald-500/20 rounded-full">
+                Sistema Inteligente v3.0 | 2026
+            </span>
+            <h1 class="text-5xl md:text-8xl font-black mb-6 tracking-tight leading-none">
+                Seguridad que <br><span class="text-gradient">evoluciona contigo.</span>
+            </h1>
+            <p class="text-lg md:text-2xl font-medium mb-12 text-slate-400 max-w-2xl mx-auto leading-relaxed">
+                Gestión y Control de acceso RFID integrado. Trazabilidad total, acción inmediata y máxima protección.
+            </p>
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-6">
+                <a href="/login" class="group relative px-10 py-5 bg-emerald-500 text-slate-900 font-extrabold text-xl rounded-2xl shadow-2xl shadow-emerald-500/20 transition-all duration-300 hover:scale-105 active:scale-95 overflow-hidden">
+                    <span class="relative z-10">Comenzar Ahora</span>
+                    <div class="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+                </a>
+                <a href="#detalles" class="px-10 py-5 bg-slate-800/50 text-white font-bold text-xl rounded-2xl border border-white/10 hover:bg-slate-700 transition-all">
+                    Saber más
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <main class="relative z-10 max-w-7xl mx-auto px-6 pb-32">
+        
+        <section id="detalles" class="py-24 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+            <div data-aos="fade-right">
+                <h2 class="text-4xl font-extrabold text-white mb-8">Tecnología de vanguardia para tu infraestructura.</h2>
+                <p class="text-xl text-slate-400 leading-relaxed">
+                    No es solo un lector de tarjetas; es un ecosistema completo. Integramos hardware especializado con una plataforma administrativa en tiempo real.
+                </p>
+                <div class="mt-10 grid grid-cols-2 gap-8">
+                    <div>
+                        <h4 class="text-3xl font-bold text-emerald-400">Calidad</h4>
+                        <p class="text-slate-500 font-bold uppercase tracking-tighter text-xs">Garantía de Satisfacción</p>
+                    </div>
+                    <div>
+                        <h4 class="text-3xl font-bold text-blue-400">Eficiencia</h4>
+                        <p class="text-slate-500 font-bold uppercase tracking-tighter text-xs">Tiempo de Respuesta Óptimo</p>
+                    </div>
+                </div>
+            </div>
+            <div data-aos="zoom-in" class="relative group">
+                <div class="absolute inset-0 bg-emerald-500/20 blur-[100px] rounded-full group-hover:bg-emerald-500/30 transition-colors"></div>
+                <img src="https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=1000" 
+                     alt="Circuito Tecnológico" 
+                     class="relative rounded-[3rem] border border-white/10 shadow-2xl grayscale group-hover:grayscale-0 transition-all duration-700 w-full h-[400px] object-cover">
+            </div>
+        </section>
+
+<section class="py-32 relative">
+    <div class="max-w-7xl mx-auto px-6">
+        <div class="flex flex-col lg:flex-row gap-16 items-center">
+            
+            <div class="w-full lg:w-1/2" data-aos="fade-right">
+                <div class="relative group">
+                    <div class="absolute -inset-1 bg-gradient-to-r from-emerald-500 to-blue-600 rounded-[2rem] blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
+                    
+                    <div class="relative glass-card rounded-[2rem] border border-white/10 bg-slate-900/90 overflow-hidden shadow-2xl">
+                        <div class="bg-slate-800/50 px-6 py-4 border-b border-white/5 flex items-center gap-2">
+                            <div class="w-3 h-3 rounded-full bg-red-500/50"></div>
+                            <div class="w-3 h-3 rounded-full bg-yellow-500/50"></div>
+                            <div class="w-3 h-3 rounded-full bg-emerald-500/50"></div>
+                            <span class="ml-4 text-[10px] font-mono text-slate-500 uppercase tracking-widest">system_monitor.log</span>
+                        </div>
+                        
+                        <div class="p-8 font-mono text-sm space-y-4">
+                            <div class="flex gap-3">
+                                <span class="text-emerald-500">></span>
+                                <p class="text-slate-300">Initializing biometric_handshake...</p>
+                            </div>
+                            <div class="flex gap-3">
+                                <span class="text-emerald-500">></span>
+                                <p class="text-slate-300">RFID_Scan: <span class="text-blue-400">UID_77_A2_B1</span></p>
+                            </div>
+                            <div class="flex gap-3 bg-emerald-500/10 p-2 rounded border-l-2 border-emerald-500">
+                                <span class="text-emerald-500">✓</span>
+                                <p class="text-emerald-400 font-bold">Access Granted: Pereira_HQ_Entrance</p>
+                            </div>
+                            <div class="flex gap-3">
+                                <span class="text-emerald-500">></span>
+                                <p class="text-slate-500 animate-pulse">Waiting for next event...</p>
+                            </div>
+
+                            <div class="mt-8 pt-6 border-t border-white/5">
+                                <p class="text-[10px] text-slate-500 mb-4 uppercase">Traffic Analytics (24h)</p>
+                                <div class="flex items-end gap-2 h-24">
+                                    <div class="flex-1 bg-slate-800 rounded-t h-[40%] group-hover:h-[60%] transition-all duration-700"></div>
+                                    <div class="flex-1 bg-emerald-500/50 rounded-t h-[70%] group-hover:h-[90%] transition-all duration-700"></div>
+                                    <div class="flex-1 bg-slate-800 rounded-t h-[50%] group-hover:h-[75%] transition-all duration-700"></div>
+                                    <div class="flex-1 bg-blue-500/50 rounded-t h-[85%] group-hover:h-[60%] transition-all duration-700"></div>
+                                    <div class="flex-1 bg-slate-800 rounded-t h-[30%] group-hover:h-[50%] transition-all duration-700"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="w-full lg:w-1/2 space-y-12" data-aos="fade-left">
+                <div>
+                    <h2 class="text-4xl md:text-5xl font-black text-white leading-tight">
+                        No es solo software, es <br>
+                        <span class="text-emerald-500">arquitectura de confianza.</span>
+                    </h2>
+                </div>
+
+                <div class="space-y-8">
+                    <div class="group flex gap-6 items-start p-6 rounded-3xl transition-all hover:bg-white/5 border border-transparent hover:border-white/10">
+                        <div class="w-12 h-12 shrink-0 bg-emerald-500/10 text-emerald-500 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-bold text-white mb-2">Seguridad de Nivel Bancario</h3>
+                            <p class="text-slate-400">Implementamos algoritmos de encriptación que superan los estándares del mercado, asegurando que cada dato RFID sea inviolable.</p>
+                        </div>
+                    </div>
+
+                    <div class="group flex gap-6 items-start p-6 rounded-3xl transition-all hover:bg-white/5 border border-transparent hover:border-white/10">
+                        <div class="w-12 h-12 shrink-0 bg-blue-500/10 text-blue-500 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-bold text-white mb-2">Analítica en Tiempo Real</h3>
+                            <p class="text-slate-400">Toma decisiones basadas en datos. Visualiza picos de tráfico y optimiza el flujo de personas en tu empresa desde cualquier lugar.</p>
+                        </div>
+                    </div>
+
+                    <div class="group flex gap-6 items-start p-6 rounded-3xl transition-all hover:bg-white/5 border border-transparent hover:border-white/10">
+                        <div class="w-12 h-12 shrink-0 bg-purple-500/10 text-purple-500 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-bold text-white mb-2">Escalabilidad Sin Límites</h3>
+                            <p class="text-slate-400">Nuestra arquitectura en la nube permite crecer desde una sola puerta hasta redes de edificios interconectados en diferentes ciudades.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</section>
+
+        <section data-aos="zoom-in" class="relative py-20 px-10 glass-card rounded-[3rem] overflow-hidden text-center border-emerald-500/20">
+            <div class="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 blur-[100px] -mr-32 -mt-32"></div>
+            <h2 class="text-4xl md:text-6xl font-black text-white mb-8 tracking-tight italic">
+                ¿Listo para transformar <br>tu seguridad?
+            </h2>
+            <p class="text-slate-400 text-xl mb-12 max-w-xl mx-auto font-medium">Únete a las empresas en Pereira y toda Colombia que ya confían en nuestra ingeniería.</p>
+            <a href="/login" class="inline-block bg-white text-slate-900 font-black px-12 py-5 rounded-2xl hover:bg-emerald-400 transition-colors text-xl">
+                Acceso Administrador
+            </a>
+        </section>
+
+    </main>
+
+    <footer class="relative z-10 py-12 text-center border-t border-white/5 bg-slate-950/50 backdrop-blur-md">
+        <p class="text-slate-500 font-bold uppercase tracking-[0.4em] text-[10px] mb-2">Gestión y Control de Acceso • Pereira, Risaralda</p>
+        <p class="text-slate-600 text-sm">© 2026 Todos los derechos reservados | Ingeniero FullStack Alejandro Jaramillo Roldán</p>
+    </footer>
+
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script>
+        AOS.init({ once: true, mirror: false });
+
+        // Script para el efecto Spotlight en las tarjetas
+        document.querySelectorAll('.glass-card').forEach(card => {
+            card.addEventListener('mousemove', e => {
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                card.style.setProperty('--x', `${x}px`);
+                card.style.setProperty('--y', `${y}px`);
+            });
+        });
+    </script>
+</body>
+</html>
