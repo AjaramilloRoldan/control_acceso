@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Gestión de Instalaciones - Control Acceso</title>
+    <link rel="icon" href="/static/pestana.png">   
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = { 
+            theme: { 
+                extend: { 
+                    fontFamily: { sans: ['Plus Jakarta Sans', 'sans-serif'] },
+                    colors: { dark: { 900: '#0f172a', 800: '#1e293b', 700: '#334155' } }
+                } 
+            } 
+        }
+    </script>
+    <style>
+        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); }
+        .modal-blur { backdrop-filter: blur(8px); background: rgba(15, 23, 42, 0.8); }
+        .inst-card:hover { transform: translateY(-5px); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3); }
+    </style>
+</head>
+<body class="bg-dark-900 text-slate-200 min-h-screen flex flex-col md:flex-row font-sans">
+
+   <aside class="w-full md:w-72 glass flex flex-col justify-between md:min-h-screen shadow-2xl relative z-20">
+    <div class="p-4 lg:p-6"> <div class="flex items-center gap-3 mb-10">
+            <div class="w-10 h-10 bg-emerald-500 rounded-lg flex items-center justify-center shadow-lg shadow-emerald-500/20 flex-shrink-0">
+                <span class="text-white font-bold text-xl">C</span>
+            </div>
+            <h3 class="text-lg lg:text-xl font-bold text-white tracking-tight whitespace-nowrap">Control de Accesos</h3>
+        </div>
+        
+        <nav class="flex flex-col gap-2">
+            <p class="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-2 ml-4">Módulo Instalaciones</p>
+            
+            <a href="/dashboard" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl font-medium transition-all group">
+                <span class="group-hover:scale-110 transition-transform">🏠</span> Dashboard
+            </a>
+
+            <a href="/usuarios" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl font-medium transition-all group">
+                <span class="group-hover:scale-110 transition-transform">👥</span> Usuarios
+            </a>
+
+            <a href="/admin_instalaciones" class="flex items-center gap-3 px-4 py-3 bg-emerald-500/10 text-emerald-400 rounded-xl font-semibold border border-emerald-500/20 transition-all">
+                <span class="text-lg scale-110">🏢</span>
+                <span class="tracking-wide">Instalaciones</span>
+            </a>
+
+            <a href="/historial" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl font-medium transition-all group">
+                <span class="group-hover:scale-110 transition-transform">📝</span> Historial
+            </a>
+
+            <div class="mt-4 pt-4 border-t border-white/5">
+                <a href="/logout" class="flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-red-500/10 rounded-xl font-medium transition-all group">
+                    <span class="group-hover:rotate-12 transition-transform">🔒</span> Cerrar Sesión
+                </a>
+            </div>
+        </nav>
+        
+     <div class="p-6 m-4 glass rounded-2xl flex items-center gap-4">
+            <img src="https://cdn-icons-png.flaticon.com/512/1946/1946429.png" class="w-10 h-10 rounded-full border border-slate-600">
+            <div class="overflow-hidden">
+                <p class="text-xs text-slate-400 truncate">{{ admin_name }}</p>
+            </div>
+    </div>
+</aside>
+
+    <main class="flex-grow p-6 md:p-10 lg:p-12 overflow-y-auto">
+        <div class="max-w-7xl mx-auto">
+            <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
+                <div>
+                    <h1 class="text-4xl font-extrabold text-white tracking-tight">Gestión de Instalaciones</h1>
+                    <p class="text-slate-400 mt-1">Configura y administra los espacios del sistema.</p>
+                </div>
+                <button onclick="openModal('create')" class="px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-900 rounded-2xl font-bold transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2">
+                    <span class="text-xl">➕</span> Nueva Instalación
+                </button>
+            </header>
+
+                <div class="flex items-center justify-between mb-8">
+                    <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                        <span class="w-2 h-8 bg-emerald-500 rounded-full"></span>
+                        Instalaciones Registradas
+                    </h2>
+                </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                {% for inst in instalaciones %}
+                <div class="glass inst-card rounded-[2rem] overflow-hidden border border-white/5 transition-all duration-300">
+                    <div class="h-48 w-full relative">
+                        {% if inst.imagen %}
+                            {% if inst.imagen.startswith('http') or inst.imagen.startswith('/static') %}
+                                <img src="{{ inst.imagen }}" class="w-full h-full object-cover">
+                            {% else %}
+                                <img src="{{ url_for('static', filename='uploads/instalaciones/' + inst.imagen) }}" class="w-full h-full object-cover">
+                            {% endif %}
+                        {% else %}
+                            <div class="w-full h-full bg-slate-800 flex items-center justify-center text-slate-600 italic">Sin Imagen</div>
+                        {% endif %}
+                        <div class="absolute inset-0 bg-gradient-to-t from-dark-900 via-transparent to-transparent"></div>
+                    </div>
+                    <div class="p-6">
+                        <h3 class="text-xl font-bold text-white mb-2">{{ inst.nombre }}</h3>
+                        <p class="text-slate-400 text-sm line-clamp-2 mb-6">{{ inst.descripcion }}</p>
+                        <div class="flex gap-3">
+                            <button onclick="openModal('edit', '{{ inst.id }}', '{{ inst.nombre }}', '{{ inst.descripcion }}', '{{ inst.imagen }}')" 
+                                    class="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition-all border border-white/5 text-sm">
+                                Editar
+                            </button>
+                            <button onclick="openDeleteModal('/eliminar_instalacion/{{ inst.id }}')" 
+                                    class="px-4 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl flex items-center justify-center transition-all">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </main>
+
+    <div id="instModal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 modal-blur">
+        <div class="glass w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden border border-white/10">
+            <div class="p-8">
+                <div class="flex justify-between items-center mb-8">
+                    <h2 id="modalTitle" class="text-2xl font-bold text-white tracking-tight">Nueva Instalación</h2>
+                    <button onclick="closeModal()" class="text-slate-500 hover:text-white transition-colors text-2xl">&times;</button>
+                </div>
+
+                <form id="instForm" method="POST" enctype="multipart/form-data" class="space-y-6">
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2 ml-1">Nombre</label>
+                        <input type="text" name="nombre" id="formNombre" required class="w-full bg-dark-900/50 border border-white/5 rounded-2xl px-5 py-4 text-white focus:outline-none focus:border-emerald-500/50 transition-all">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2 ml-1">Descripción</label>
+                        <textarea name="descripcion" id="formDesc" rows="3" class="w-full bg-dark-900/50 border border-white/5 rounded-2xl px-5 py-4 text-white focus:outline-none focus:border-emerald-500/50 transition-all resize-none"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2 ml-1">Imagen</label>
+                        <div class="flex flex-col gap-4">
+                            <div id="previewContainer" class="hidden h-32 w-full rounded-2xl overflow-hidden border border-white/10 relative">
+                                <img id="imagePreview" src="#" class="w-full h-full object-cover">
+                                <button type="button" onclick="removeImage()" class="absolute top-2 right-2 bg-red-500 text-white w-6 h-6 rounded-full text-xs">×</button>
+                            </div>
+                            <input type="file" name="imagen" id="formImagen" accept="image/*" class="w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-emerald-500/10 file:text-emerald-400 hover:file:bg-emerald-500/20 cursor-pointer">
+                        </div>
+                    </div>
+                    <div class="pt-4">
+                        <button type="submit" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-bold py-4 rounded-2xl transition-all shadow-lg shadow-emerald-500/20">Guardar Cambios</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="notificationModal" class="fixed inset-0 z-[60] hidden flex items-center justify-center p-4 modal-blur">
+        <div class="glass w-full max-w-sm rounded-[2.5rem] shadow-2xl overflow-hidden border border-white/10 p-8 text-center">
+            <div id="notifIcon" class="w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center text-4xl"></div>
+            <h2 id="notifTitle" class="text-2xl font-bold text-white mb-2"></h2>
+            <p id="notifMessage" class="text-slate-400 mb-8"></p>
+            <button onclick="closeNotification()" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-bold py-4 rounded-2xl transition-all shadow-lg shadow-emerald-500/20">Entendido</button>
+        </div>
+    </div>
+
+    <div id="deleteConfirmModal" class="fixed inset-0 z-[70] hidden flex items-center justify-center p-4 modal-blur">
+        <div class="glass w-full max-w-sm rounded-[2.5rem] shadow-2xl overflow-hidden border border-white/10 p-8 text-center">
+            <div class="w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center text-4xl bg-red-500/20 text-red-500 border-4 border-red-500/30 shadow-lg shadow-red-500/10">
+                ⚠️
+            </div>
+            <h2 class="text-2xl font-bold text-white mb-2">¿Estás seguro?</h2>
+            <p class="text-slate-400 mb-8">Esta acción eliminará la instalación permanentemente y no se puede deshacer.</p>
+            
+            <div class="flex gap-3">
+                <button onclick="closeDeleteModal()" class="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-bold py-4 rounded-2xl transition-all">
+                    Cancelar
+                </button>
+                <a id="confirmDeleteBtn" href="#" class="flex-1 bg-red-500 hover:bg-red-400 text-white font-bold py-4 rounded-2xl transition-all shadow-lg shadow-red-500/20 flex items-center justify-center text-center">
+                    Eliminar
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const modal = document.getElementById('instModal');
+        const form = document.getElementById('instForm');
+        const imgInput = document.getElementById('formImagen');
+        const preview = document.getElementById('imagePreview');
+        const previewContainer = document.getElementById('previewContainer');
+
+        // Lógica de Formularios Crear/Editar
+        function openModal(mode, id = '', nombre = '', desc = '', img = '') {
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            if (mode === 'create') {
+                document.getElementById('modalTitle').innerText = 'Nueva Instalación';
+                form.action = '/crear_instalacion';
+                form.reset();
+                removeImage();
+            } else {
+                document.getElementById('modalTitle').innerText = 'Editar Instalación';
+                form.action = `/editar_instalacion/${id}`;
+                document.getElementById('formNombre').value = nombre;
+                document.getElementById('formDesc').value = desc;
+                if(img && img !== 'None' && img !== '') {
+                    let imgSrc = (img.startsWith('http') || img.startsWith('/static')) ? img : `/static/uploads/instalaciones/${img}`;
+                    showPreview(imgSrc);
+                } else {
+                    removeImage();
+                }
+            }
+        }
+
+        function closeModal() {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        // Previsualización de Imágenes
+        imgInput.onchange = function() {
+            const [file] = imgInput.files;
+            if (file) showPreview(URL.createObjectURL(file));
+        };
+
+        function showPreview(src) {
+            preview.src = src;
+            previewContainer.classList.remove('hidden');
+        }
+
+        function removeImage() {
+            imgInput.value = "";
+            previewContainer.classList.add('hidden');
+            preview.src = "#";
+        }
+
+        function showNotification(category, message) {
+            const notifModal = document.getElementById('notificationModal');
+            const notifIcon = document.getElementById('notifIcon');
+            const notifTitle = document.getElementById('notifTitle');
+            const notifMessage = document.getElementById('notifMessage');
+
+            if (category === 'success') {
+                notifIcon.innerHTML = '✔️';
+                notifIcon.className = "w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center text-4xl bg-emerald-500/20 text-emerald-500 border-4 border-emerald-500/30 shadow-lg shadow-emerald-500/10";
+                notifTitle.innerText = "¡Hecho!";
+            } else {
+                notifIcon.innerHTML = '❌';
+                notifIcon.className = "w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center text-4xl bg-red-500/20 text-red-500 border-4 border-red-500/30 shadow-lg shadow-red-500/10";
+                notifTitle.innerText = "Error";
+            }
+            notifMessage.innerText = message;
+            notifModal.classList.remove('hidden');
+            notifModal.classList.add('flex');
+        }
+
+        function closeNotification() {
+            document.getElementById('notificationModal').classList.add('hidden');
+            document.getElementById('notificationModal').classList.remove('flex');
+        }
+
+        // Lógica del Modal de Eliminación
+        function openDeleteModal(url) {
+            const deleteModal = document.getElementById('deleteConfirmModal');
+            const confirmBtn = document.getElementById('confirmDeleteBtn');
+            confirmBtn.href = url;
+            deleteModal.classList.remove('hidden');
+            deleteModal.classList.add('flex');
+        }
+
+        function closeDeleteModal() {
+            const deleteModal = document.getElementById('deleteConfirmModal');
+            deleteModal.classList.add('hidden');
+            deleteModal.classList.remove('flex');
+        }
+
+        window.onload = () => {
+            {% with messages = get_flashed_messages(with_categories=true) %}
+              {% if messages %}
+                {% for category, message in messages %}
+                    showNotification('{{ category }}', '{{ message }}');
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+        }
+    </script>
+</body>
+</html>
