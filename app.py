@@ -1,11 +1,11 @@
-from flask import Flask, render_template, request, redirect, session, url_for, jsonify
+from flask import Flask, render_template, request, redirect, session, url_for, jsonify, flash
 import mysql.connector
-from flask import flash
 import os
 import time
 from datetime import datetime, timedelta, time as dt_time
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import func
+from werkzeug.utils import secure_filename
 
 # Configuración de Zona Horaria para Colombia
 os.environ['TZ'] = 'America/Bogota'
@@ -14,6 +14,15 @@ if hasattr(time, 'tzset'):
 
 app = Flask(__name__)
 app.secret_key = 'clave_secreta'
+
+# Configuración de Carga de Imágenes
+UPLOAD_FOLDER = 'static/uploads/instalaciones'
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp'}
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # --- CONFIGURACIÓN DE BASE DE DATOS ---
 
@@ -46,16 +55,15 @@ class AccessLog(db.Model):
     __tablename__ = 'access_log'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    timestamp = db.Column(db.DateTime, default=datetime.now)
     success = db.Column(db.Boolean, default=True)
 
 class Instalacion(db.Model):
     __tablename__ = 'instalaciones'
     id = db.Column(db.Integer, primary_key=True)
     nombre = db.Column(db.String(100), nullable=False)
-    descripcion = db.Column(db.Text)
-    capacidad = db.Column(db.Integer, default=1)
-    imagen = db.Column(db.String(255))
+    descripcion = db.Column(db.Text, nullable=True)
+    imagen = db.Column(db.String(255), nullable=True)
     reservas = db.relationship('Reserva', backref='instalacion', lazy=True)
 
 class Reserva(db.Model):
@@ -66,8 +74,101 @@ class Reserva(db.Model):
     fecha_reserva = db.Column(db.Date, nullable=False)
     hora_inicio = db.Column(db.Time, nullable=False)
     hora_fin = db.Column(db.Time, nullable=False)
-    estado = db.Column(db.String(20), default='activa') 
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    estado = db.Column(db.String(20), default='activa')
+
+# --- RUTAS ADMINISTRATIVAS DE INSTALACIONES ---
+
+@app.route('/admin_instalaciones')
+def admin_instalaciones():
+    if session.get('role') != 'admin': return redirect(url_for('login'))
+    todas = Instalacion.query.all()
+    return render_template('admin_instalaciones.html', instalaciones=todas, admin_name=session.get('name'))
+
+@app.route('/crear_instalacion', methods=['POST'])
+def crear_instalacion():
+    if session.get('role') != 'admin': return jsonify({"error": "No autorizado"}), 403
+    
+    nombre = request.form.get('nombre')
+    descripcion = request.form.get('descripcion')
+    file = request.files.get('imagen')
+    
+    filename = None
+    if file and allowed_file(file.filename):
+        filename = secure_filename(f"{datetime.now().timestamp()}_{file.filename}")
+        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+    
+    nueva = Instalacion(nombre=nombre, descripcion=descripcion, imagen=filename)
+    db.session.add(nueva)
+    db.session.commit()
+    flash('Instalación creada con éxito', 'success')
+    return redirect(url_for('admin_instalaciones'))
+
+@app.route('/editar_instalacion/<int:id>', methods=['POST'])
+def editar_instalacion(id):
+    if session.get('role') != 'admin': return redirect(url_for('login'))
+    inst = Instalacion.query.get_or_404(id)
+    
+    inst.nombre = request.form.get('nombre')
+    inst.descripcion = request.form.get('descripcion')
+    
+    file = request.files.get('imagen')
+    if file and allowed_file(file.filename):
+        # Eliminar imagen anterior si existe
+        if inst.imagen:
+            old_path = os.path.join(app.config['UPLOAD_FOLDER'], inst.imagen)
+            if os.path.exists(old_path): os.remove(old_path)
+            
+        filename = secure_filename(f"{datetime.now().timestamp()}_{file.filename}")
+        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        inst.imagen = filename
+        
+    db.session.commit()
+    flash('Instalación actualizada', 'success')
+    return redirect(url_for('admin_instalaciones'))
+
+@app.route('/eliminar_instalacion/<int:id>')
+def eliminar_instalacion(id):
+    if session.get('role') != 'admin': 
+        return redirect(url_for('login'))
+    
+    inst = Instalacion.query.get_or_404(id)
+    
+    try:
+        # Borrar la imagen del servidor si existe
+        if inst.imagen:
+            path = os.path.join(app.config['UPLOAD_FOLDER'], inst.imagen)
+            if os.path.exists(path): 
+                os.remove(path)
+        
+        # Borrar de la base de datos
+        db.session.delete(inst)
+        db.session.commit()
+
+        # Lanzar el mensaje de éxito
+        flash('Instalación eliminada correctamente', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error al eliminar: {str(e)}', 'error')
+
+    return redirect(url_for('admin_instalaciones'))
+    if session.get('role') != 'admin': return redirect(url_for('login'))
+    inst = Instalacion.query.get_or_404(id)
+    if inst.imagen:
+        path = os.path.join(app.config['UPLOAD_FOLDER'], inst.imagen)
+        if os.path.exists(path): os.remove(path)
+    db.session.delete(inst)
+    db.session.commit()
+    return redirect(url_for('admin_instalaciones'))
+    if session.get('role') != 'admin': return redirect(url_for('login'))
+    inst = Instalacion.query.get_or_404(id)
+    if inst.imagen:
+        path = os.path.join(app.config['UPLOAD_FOLDER'], inst.imagen)
+        if os.path.exists(path): os.remove(path)
+    db.session.delete(inst)
+    db.session.commit()
+    flash('Instalación eliminada', 'success')
+    return redirect(url_for('admin_instalaciones'))
 
 # --- RUTAS DE NAVEGACIÓN BÁSICA ---
 
@@ -239,7 +340,7 @@ def get_stats():
         "eficiencia_labels": eficiencia_labels, "success_by_inst": success_by_inst, "fail_by_inst": fail_by_inst
     })
 
-# --- GESTIÓN DE USUARIOS (CRUD COMPLETO) ---
+# --- GESTIÓN DE USUARIOS (CRUD) ---
 
 @app.route('/usuarios')
 def usuarios():
@@ -296,14 +397,13 @@ def editar_usuario(id):
             
     return render_template('editar_usuario.html', usuario=usuario)
 
-# --- En tu archivo app.py ---
+# --- Eliminar Usuario ---
 
 @app.route('/eliminar_usuario/<int:id>', methods=['GET', 'POST'])
 def eliminar_usuario(id):
     usuario_objeto = User.query.get_or_404(id) 
     
     try:
-        # Eliminar registros asociados en AccessLog para evitar errores de llave foránea
         AccessLog.query.filter_by(user_id=id).delete()
         
         db.session.delete(usuario_objeto)
