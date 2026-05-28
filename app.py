@@ -3,9 +3,20 @@ import mysql.connector
 import os
 import time
 from datetime import datetime, timedelta, time as dt_time
+from zoneinfo import ZoneInfo  # <- Agregado para manejo de zona horaria nativo en Windows
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import func
 from werkzeug.utils import secure_filename
+from dotenv import load_dotenv
+import logging
+from logging.handlers import RotatingFileHandler
+import bcrypt
+from flask_wtf.csrf import CSRFProtect
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+
+# Cargar variables de entorno
+load_dotenv()
 
 # Configuración de Zona Horaria para Colombia
 os.environ['TZ'] = 'America/Bogota'
@@ -13,7 +24,27 @@ if hasattr(time, 'tzset'):
     time.tzset()
 
 app = Flask(__name__)
-app.secret_key = 'clave_secreta'
+app.secret_key = os.getenv('SECRET_KEY', 'clave_secreta_default_cambiar_en_produccion')
+
+# CSRF Protection
+csrf = CSRFProtect(app)
+
+# Rate Limiting para prevenir fuerza bruta
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"]
+)
+
+# Security Headers
+@app.after_request
+def set_security_headers(response):
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; img-src 'self' data: https:; font-src 'self' https://fonts.gstatic.com;"
+    return response
 
 # Configuración de Carga de Imágenes
 UPLOAD_FOLDER = 'static/uploads/instalaciones'
@@ -29,16 +60,97 @@ def allowed_file(filename):
 # Conexión directa para consultas legacy (Dashboard e Historial)
 def get_db():
     return mysql.connector.connect(
-        host="localhost",
-        user="root",
-        password="Roldan.1982",
-        database="control_acceso"
+        host=os.getenv('DB_HOST', 'localhost'),
+        user=os.getenv('DB_USER', 'root'),
+        password=os.getenv('DB_PASSWORD', 'Roldan.1982'),
+        database=os.getenv('DB_NAME', 'control_acceso')
     )
 
 # Configuración SQLAlchemy
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+mysqlconnector://root:Roldan.1982@localhost:3306/control_acceso'
+db_host = os.getenv('DB_HOST', 'localhost')
+db_user = os.getenv('DB_USER', 'root')
+db_password = os.getenv('DB_PASSWORD', 'Roldan.1982')
+db_name = os.getenv('DB_NAME', 'control_acceso')
+app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+mysqlconnector://{db_user}:{db_password}@{db_host}:3306/{db_name}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
+
+# --- CONFIGURACIÓN DE LOGGING DE SEGURIDAD ---
+if not os.path.exists('logs'):
+    os.makedirs('logs')
+
+security_logger = logging.getLogger('security')
+security_logger.setLevel(logging.INFO)
+
+# Handler para archivo de seguridad con rotación
+security_handler = RotatingFileHandler(
+    'logs/security.log',
+    maxBytes=1024*1024,  # 1MB
+    backupCount=5
+)
+security_handler.setLevel(logging.INFO)
+
+# Formato del log
+formatter = logging.Formatter(
+    '%(asctime)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+security_handler.setFormatter(formatter)
+security_logger.addHandler(security_handler)
+
+def log_security_event(event_type, user_id=None, details=None, ip=None):
+    """Registra eventos de seguridad"""
+    message = f"{event_type}"
+    if user_id:
+        message += f" | User ID: {user_id}"
+    if details:
+        message += f" | Details: {details}"
+    if ip:
+        message += f" | IP: {ip}"
+    security_logger.info(message)
+
+# --- UTILIDADES DE PASSWORD CON BCRYPT ---
+
+def hash_password(password):
+    """Hashea una contraseña usando bcrypt"""
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
+    return hashed.decode('utf-8')
+
+def verify_password(password, hashed_password):
+    """Verifica una contraseña contra su hash"""
+    try:
+        return bcrypt.checkpw(password.encode('utf-8'), hashed_password.encode('utf-8'))
+    except:
+        # Si el hash no está en formato bcrypt, verificar como texto plano (para migración)
+        return password == hashed_password
+
+# --- VALIDACIÓN DE INPUTS ---
+
+def validate_username(username):
+    """Valida que el username cumpla con los requisitos"""
+    if not username or len(username) < 3 or len(username) > 50:
+        return False
+    # Solo permitir caracteres alfanuméricos y guiones bajos
+    return all(c.isalnum() or c == '_' for c in username)
+
+def validate_password(password):
+    """Valida que la contraseña cumpla con requisitos mínimos"""
+    if not password or len(password) < 6:
+        return False
+    return True
+
+def validate_rfid(rfid):
+    """Valida el formato del RFID"""
+    if not rfid or len(rfid) < 3 or len(rfid) > 50:
+        return False
+    return True
+
+def validate_name(name):
+    """Valida el nombre del usuario"""
+    if not name or len(name) < 2 or len(name) > 100:
+        return False
+    return True
 
 # --- MODELOS ---
 
@@ -48,15 +160,18 @@ class User(db.Model):
     name = db.Column(db.String(100), nullable=False)
     rfid = db.Column(db.String(50), unique=True, nullable=False)
     username = db.Column(db.String(50), unique=True, nullable=False)
-    password = db.Column(db.String(100), nullable=False)
+    password = db.Column(db.String(255), nullable=False)  # Aumentado para bcrypt
     reservas = db.relationship('Reserva', backref='usuario', lazy=True)
 
 class AccessLog(db.Model):
     __tablename__ = 'access_log'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    rfid_uid = db.Column(db.String(50), nullable=True)
     timestamp = db.Column(db.DateTime, default=datetime.now)
     success = db.Column(db.Boolean, default=True)
+    tiempo_lectura_ms = db.Column(db.Integer, nullable=True)
+    tiempo_reconexion_wifi = db.Column(db.Integer, nullable=True)
 
 class Instalacion(db.Model):
     __tablename__ = 'instalaciones'
@@ -177,14 +292,17 @@ def index():
     return render_template('index.html')
 
 @app.route('/login', methods=['GET', 'POST'])
+@limiter.limit("5 per 15 minutes")
 def login():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
+        client_ip = request.remote_addr
+        
         conn = get_db()
         cursor = conn.cursor(dictionary=True)
         
-        # Admin check
+        # Admin check (mantener compatibilidad temporal, luego migrar a bcrypt)
         cursor.execute("SELECT * FROM admin WHERE username = %s AND password = %s", (username, password))
         admin = cursor.fetchone()
         if admin:
@@ -194,17 +312,23 @@ def login():
             session['role'] = 'admin'
             cursor.close()
             conn.close()
+            log_security_event('LOGIN_SUCCESS', user_id=admin['id'], details='Admin login', ip=client_ip)
             return redirect(url_for('dashboard'))
 
-        # User check
-        user = User.query.filter_by(username=username, password=password).first()
-        if user:
+        # User check con bcrypt
+        user = User.query.filter_by(username=username).first()
+        if user and verify_password(password, user.password):
             session.clear()
             session['user_id'] = user.id
             session['name'] = user.name
             session['role'] = 'user'
+            cursor.close()
+            conn.close()
+            log_security_event('LOGIN_SUCCESS', user_id=user.id, details='User login', ip=client_ip)
             return redirect(url_for('instalaciones'))
         
+        # Login fallido
+        log_security_event('LOGIN_FAILED', details=f'Username: {username}', ip=client_ip)
         cursor.close()
         conn.close()
     return render_template('login.html')
@@ -323,6 +447,24 @@ def get_stats():
     cursor.execute("SELECT COUNT(*) as ok FROM access_log WHERE success = 1")
     porcentaje_exito = round((cursor.fetchone()['ok'] / total) * 100, 1)
 
+    # Nuevas métricas
+    # Tiempo de lectura promedio (últimos 100 accesos)
+    cursor.execute("SELECT AVG(tiempo_lectura_ms) as avg_time FROM access_log WHERE tiempo_lectura_ms IS NOT NULL ORDER BY timestamp DESC LIMIT 100")
+    avg_lectura_result = cursor.fetchone()
+    tiempo_lectura_promedio = int(avg_lectura_result['avg_time']) if avg_lectura_result and avg_lectura_result['avg_time'] else 0
+
+    # Disponibilidad (porcentaje de solicitudes exitosas del servidor - HTTP 200 vs otros)
+    cursor.execute("SELECT COUNT(*) as total_requests FROM access_log")
+    total_requests = cursor.fetchone()['total_requests'] or 1
+    cursor.execute("SELECT COUNT(*) as successful_requests FROM access_log WHERE success = 1")
+    successful_requests = cursor.fetchone()['successful_requests'] or 0
+    disponibilidad = round((successful_requests / total_requests) * 100, 1)
+
+    # Reconexión WiFi promedio
+    cursor.execute("SELECT AVG(tiempo_reconexion_wifi) as avg_reconexion FROM access_log WHERE tiempo_reconexion_wifi IS NOT NULL AND tiempo_reconexion_wifi > 0")
+    avg_reconexion_result = cursor.fetchone()
+    tiempo_reconexion_promedio = int(avg_reconexion_result['avg_reconexion']) if avg_reconexion_result and avg_reconexion_result['avg_reconexion'] else 0
+
     reserva_data = db.session.query(Instalacion.nombre, func.count(Reserva.id)).join(Reserva).filter(Reserva.estado == 'activa').group_by(Instalacion.nombre).all()
     inst_names = [r[0] for r in reserva_data]
     inst_counts = [r[1] for r in reserva_data]
@@ -337,8 +479,34 @@ def get_stats():
     return jsonify({
         "labels": labels, "autorizados": autorizados, "denegados": denegados, 
         "porcentaje_exito": porcentaje_exito, "inst_names": inst_names, "inst_counts": inst_counts,
-        "eficiencia_labels": eficiencia_labels, "success_by_inst": success_by_inst, "fail_by_inst": fail_by_inst
+        "eficiencia_labels": eficiencia_labels, "success_by_inst": success_by_inst, "fail_by_inst": fail_by_inst,
+        "tiempo_lectura_promedio": tiempo_lectura_promedio,
+        "disponibilidad": disponibilidad,
+        "tiempo_reconexion_wifi": tiempo_reconexion_promedio
     })
+
+@app.route('/api/denegados')
+def get_denegados():
+    if session.get('role') != 'admin': return jsonify({"error": "Unauthorized"}), 401
+    conn = get_db()
+    cursor = conn.cursor(dictionary=True)
+    
+    cursor.execute("""
+        SELECT al.id, al.rfid_uid, al.timestamp as fecha,
+        CASE WHEN al.user_id IS NULL THEN 'Usuario no registrado' 
+             ELSE u.name END as usuario
+        FROM access_log al 
+        LEFT JOIN users u ON al.user_id = u.id 
+        WHERE al.success = 0 AND al.rfid_uid IS NOT NULL
+        ORDER BY al.timestamp DESC 
+        LIMIT 50
+    """)
+    denegados = cursor.fetchall()
+    
+    cursor.close()
+    conn.close()
+    
+    return jsonify({"denegados": denegados})
 
 # --- GESTIÓN DE USUARIOS (CRUD) ---
 
@@ -348,25 +516,48 @@ def usuarios():
     usuarios_lista = User.query.all()
     return render_template('usuarios.html', usuarios=usuarios_lista)
 
-@app.route('/agregar_usuario', methods=['POST'])
+@app.route('/agregar_usuario', methods=['GET', 'POST'])
 def agregar_usuario():
     if session.get('role') != 'admin': 
         return redirect(url_for('login'))
+
+    if request.method == 'GET':
+        rfid_pre = request.args.get('rfid', '')
+        return render_template('agregar_usuario.html', rfid_pre=rfid_pre)
 
     name = request.form.get('name')
     rfid = request.form.get('rfid')
     username = request.form.get('username')
     password = request.form.get('password')
+    client_ip = request.remote_addr
 
     # VALIDACIÓN
     if not all([name, rfid, username, password]):
         flash('Error: Todos los campos son obligatorios', 'error')
         return redirect(url_for('usuarios'))
     
+    if not validate_name(name):
+        flash('Error: Nombre inválido (mínimo 2 caracteres, máximo 100)', 'error')
+        return redirect(url_for('usuarios'))
+    
+    if not validate_rfid(rfid):
+        flash('Error: RFID inválido (mínimo 3 caracteres, máximo 50)', 'error')
+        return redirect(url_for('usuarios'))
+    
+    if not validate_username(username):
+        flash('Error: Usuario inválido (solo alfanuméricos y guiones bajos, 3-50 caracteres)', 'error')
+        return redirect(url_for('usuarios'))
+    
+    if not validate_password(password):
+        flash('Error: Contraseña inválida (mínimo 6 caracteres)', 'error')
+        return redirect(url_for('usuarios'))
+    
     try:
-        nuevo = User(name=name, rfid=rfid, username=username, password=password)
+        hashed_password = hash_password(password)
+        nuevo = User(name=name, rfid=rfid, username=username, password=hashed_password)
         db.session.add(nuevo)
         db.session.commit()
+        log_security_event('USER_CREATED', user_id=nuevo.id, details=f'Username: {username}', ip=client_ip)
         flash('Usuario registrado con éxito', 'success')
     except:
         db.session.rollback()
@@ -378,16 +569,40 @@ def agregar_usuario():
 def editar_usuario(id):
     if session.get('role') != 'admin': return redirect(url_for('login'))
     usuario = User.query.get_or_404(id)
+    client_ip = request.remote_addr
     
     if request.method == 'POST':
-        usuario.name = request.form.get('name')
-        usuario.rfid = request.form.get('rfid')
-        usuario.username = request.form.get('username')
-        if request.form.get('password'):
-            usuario.password = request.form.get('password')
+        name = request.form.get('name')
+        rfid = request.form.get('rfid')
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        # VALIDACIÓN
+        if not validate_name(name):
+            flash('Error: Nombre inválido (mínimo 2 caracteres, máximo 100)', 'error')
+            return redirect(url_for('editar_usuario', id=id))
+        
+        if not validate_rfid(rfid):
+            flash('Error: RFID inválido (mínimo 3 caracteres, máximo 50)', 'error')
+            return redirect(url_for('editar_usuario', id=id))
+        
+        if not validate_username(username):
+            flash('Error: Usuario inválido (solo alfanuméricos y guiones bajos, 3-50 caracteres)', 'error')
+            return redirect(url_for('editar_usuario', id=id))
+        
+        if password and not validate_password(password):
+            flash('Error: Contraseña inválida (mínimo 6 caracteres)', 'error')
+            return redirect(url_for('editar_usuario', id=id))
+        
+        usuario.name = name
+        usuario.rfid = rfid
+        usuario.username = username
+        if password:
+            usuario.password = hash_password(password)
             
         try:
             db.session.commit()
+            log_security_event('USER_UPDATED', user_id=id, details=f'Username: {usuario.username}', ip=client_ip)
             flash('Cambio aplicado correctamente', 'success') 
             return redirect(url_for('usuarios')) 
         except:
@@ -418,19 +633,28 @@ def eliminar_usuario(id):
 # --- LÓGICA DE CONTROL DE ACCESO (RFID) ---
 
 @app.route('/historial', methods=['GET', 'POST'])
+@csrf.exempt
 def historial():
     if request.method == 'POST':
         data = request.get_json()
         uid = data.get('uid')
-        inst_id = data.get('instalacion_id', 1) 
+        inst_id = data.get('instalacion_id', 1)
+        tiempo_lectura = data.get('tiempo_lectura')
+        tiempo_reconexion_wifi = data.get('tiempo_reconexion_wifi')
         
         user = User.query.filter_by(rfid=uid).first()
-        ahora = datetime.now()
+        
+        # --- LÓGICA DE TIEMPO AJUSTADA PARA COMPATIBILIDAD CON WINDOWS (COLOMBIA) ---
+        zona_co = ZoneInfo('America/Bogota')
+        ahora = datetime.now(zona_co).replace(tzinfo=None)
         hora_actual = ahora.time()
         fecha_actual = ahora.date()
 
+        # Print de depuración para ver en consola lo que evalúa el backend
+        print(f"🔎 Validando acceso: {user.name if user else 'Desconocido'} | Instalación ID: {inst_id} | Fecha: {fecha_actual} | Hora: {hora_actual}")
+
         if not user:
-            log = AccessLog(user_id=None, success=False)
+            log = AccessLog(user_id=None, rfid_uid=uid, success=False, tiempo_lectura_ms=tiempo_lectura, tiempo_reconexion_wifi=tiempo_reconexion_wifi, timestamp=ahora)
             db.session.add(log)
             db.session.commit()
             return jsonify({"message": "Acceso denegado: Usuario no registrado", "access": False}), 403
@@ -445,12 +669,12 @@ def historial():
         ).first()
 
         if reserva:
-            log = AccessLog(user_id=user.id, success=True)
+            log = AccessLog(user_id=user.id, rfid_uid=uid, success=True, tiempo_lectura_ms=tiempo_lectura, tiempo_reconexion_wifi=tiempo_reconexion_wifi, timestamp=ahora)
             db.session.add(log)
             db.session.commit()
             return jsonify({"message": f"Acceso autorizado: {user.name}", "access": True}), 200
         else:
-            log = AccessLog(user_id=user.id, success=False)
+            log = AccessLog(user_id=user.id, rfid_uid=uid, success=False, tiempo_lectura_ms=tiempo_lectura, tiempo_reconexion_wifi=tiempo_reconexion_wifi, timestamp=ahora)
             db.session.add(log)
             db.session.commit()
             return jsonify({"message": "Sin reserva activa", "access": False}), 401
@@ -478,4 +702,7 @@ def consultar_disponibilidad(inst_id, fecha):
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    app.run(debug=True, host='0.0.0.0')
+    
+    # Configuración de producción vs desarrollo
+    debug_mode = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
+    app.run(debug=debug_mode, host='0.0.0.0', port=5000)
