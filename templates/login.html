@@ -38,6 +38,7 @@
             </div>
 
             <form method="POST" class="space-y-5">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                 <div class="group">
                     <label for="username" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 ml-1">Usuario</label>
                     <div class="relative group-focus-within:scale-[1.01] transition-transform duration-200">

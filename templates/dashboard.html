@@ -101,6 +101,24 @@
                 </div>
             </div>
 
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
+                <div class="glass p-6 rounded-3xl border-l-4 border-l-amber-500 hover:scale-105 transition-transform">
+                    <p class="text-slate-400 text-xs font-bold uppercase tracking-widest">Tiempo Lectura</p>
+                    <h2 class="text-3xl font-bold text-white mt-2"><span id="tiempo-lectura">--</span> ms</h2>
+                    <p class="text-slate-500 text-xs mt-1">Promedio (últimos 100)</p>
+                </div>
+                <div class="glass p-6 rounded-3xl border-l-4 border-l-cyan-500 hover:scale-105 transition-transform">
+                    <p class="text-slate-400 text-xs font-bold uppercase tracking-widest">Disponibilidad</p>
+                    <h2 class="text-3xl font-bold text-white mt-2"><span id="disponibilidad">--</span>%</h2>
+                    <p class="text-slate-500 text-xs mt-1">Solicitudes exitosas</p>
+                </div>
+                <div class="glass p-6 rounded-3xl border-l-4 border-l-orange-500 hover:scale-105 transition-transform">
+                    <p class="text-slate-400 text-xs font-bold uppercase tracking-widest">Reconexión WiFi</p>
+                    <h2 class="text-3xl font-bold text-white mt-2"><span id="reconexion-wifi">--</span> seg</h2>
+                    <p class="text-slate-500 text-xs mt-1">Tiempo promedio</p>
+                </div>
+            </div>
+
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div class="lg:col-span-2 glass p-8 rounded-3xl shadow-2xl">
                     <h3 class="text-xl font-bold text-white mb-6">Flujo de Tráfico (7 días)</h3>
@@ -116,6 +134,28 @@
                 <div class="lg:col-span-3 glass p-8 rounded-3xl shadow-2xl">
                     <h3 class="text-xl font-bold text-white mb-6">Reservas por Instalación</h3>
                     <div id="bar-chart"></div>
+                </div>
+
+                <div class="lg:col-span-3 glass p-8 rounded-3xl shadow-2xl">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-xl font-bold text-white">Accesos Denegados (Últimos 50)</h3>
+                        <button onclick="loadDenegados()" class="px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 rounded-xl text-xs font-bold uppercase tracking-widest transition-all">Actualizar</button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="text-slate-500 text-xs uppercase tracking-widest border-b border-white/10">
+                                    <th class="text-left py-3">UID Tarjeta</th>
+                                    <th class="text-left py-3">Usuario</th>
+                                    <th class="text-left py-3">Fecha</th>
+                                    <th class="text-right py-3">Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="denegados-table">
+                                <tr><td colspan="4" class="text-center py-8 text-slate-500">Cargando...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -135,6 +175,11 @@
         async function loadCharts() {
             const response = await fetch('/api/stats');
             const data = await response.json();
+
+            // Actualizar métricas de tarjetas
+            document.getElementById('tiempo-lectura').textContent = data.tiempo_lectura_promedio || '--';
+            document.getElementById('disponibilidad').textContent = data.disponibilidad || '--';
+            document.getElementById('reconexion-wifi').textContent = (data.tiempo_reconexion_wifi / 1000).toFixed(1) || '--';
 
             // 1. Gráfica de Tráfico (Area)
             new ApexCharts(document.querySelector("#main-area-chart"), {
@@ -241,6 +286,33 @@
         }
 
         loadCharts();
+        loadDenegados();
+
+        async function loadDenegados() {
+            const response = await fetch('/api/denegados');
+            const data = await response.json();
+            const table = document.getElementById('denegados-table');
+            
+            if (data.denegados.length === 0) {
+                table.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-slate-500">Sin accesos denegados</td></tr>';
+                return;
+            }
+            
+            table.innerHTML = data.denegados.map(d => `
+                <tr class="border-b border-white/5 hover:bg-white/5 transition-all">
+                    <td class="py-3 font-mono text-xs text-amber-400">${d.rfid_uid}</td>
+                    <td class="py-3 text-slate-300">${d.usuario}</td>
+                    <td class="py-3 text-slate-500 text-xs">${new Date(d.fecha).toLocaleString('es-ES')}</td>
+                    <td class="py-3 text-right">
+                        <button onclick="registrarTarjeta('${d.rfid_uid}')" class="px-3 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 rounded-lg text-xs font-bold uppercase tracking-widest transition-all">Registrar</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function registrarTarjeta(uid) {
+            window.location.href = `/agregar_usuario?rfid=${uid}`;
+        }
     </script>
 </body>
 </html>
