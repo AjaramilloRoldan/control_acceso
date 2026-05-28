@@ -24,11 +24,25 @@ LiquidCrystal_PCF8574 lcd(LCD_ADDR);
 MFRC522 mfrc522(SS_PIN, RST_PIN);
 
 // --- WiFi ---
-const char* ssid = "valen";
-const char* password = "valentina";
+const char* ssid = "vivo Y51";
+const char* password = "Nicolas13";
 
 // --- Servidor Flask ---
-const char* serverURL = "http://172.20.10.4:5000/historial";
+const char* serverURL = "http://10.15.124.7:5000/historial";
+
+// --- ID de Instalación ---
+// Configurar según la ubicación física del lector RFID:
+// 1: Cancha de Squashhhh
+// 2: Sala de Juntas VIP
+// 3: Piscina Climatizada
+// 17: Prueba
+const int INSTALACION_ID = 2;
+
+// --- Métricas ---
+unsigned long tiempoLectura = 0;
+unsigned long tiempoReconexionWiFi = 0;
+unsigned long ultimaDesconexionWiFi = 0;
+bool wifiConectadoAnterior = false;
 
 void setup() {
   Serial.begin(115200);
@@ -88,9 +102,27 @@ void setup() {
   lcd.clear();
   lcd.setCursor(0, 0);
   lcd.print("Acercar tarjeta");
+
+  // --- Inicializar estado WiFi ---
+  wifiConectadoAnterior = (WiFi.status() == WL_CONNECTED);
 }
 
 void loop() {
+  // --- Detectar reconexión WiFi ---
+  bool wifiConectadoActual = (WiFi.status() == WL_CONNECTED);
+  if (!wifiConectadoAnterior && wifiConectadoActual) {
+    // WiFi se reconectó
+    tiempoReconexionWiFi = millis() - ultimaDesconexionWiFi;
+    Serial.print("WiFi reconectado en ");
+    Serial.print(tiempoReconexionWiFi);
+    Serial.println(" ms");
+  } else if (wifiConectadoAnterior && !wifiConectadoActual) {
+    // WiFi se desconectó
+    ultimaDesconexionWiFi = millis();
+    Serial.println("WiFi desconectado");
+  }
+  wifiConectadoAnterior = wifiConectadoActual;
+
   // --- Esperar tarjeta ---
   if (!mfrc522.PICC_IsNewCardPresent() || !mfrc522.PICC_ReadCardSerial()) return;
 
@@ -101,21 +133,32 @@ void loop() {
     uid += String(mfrc522.uid.uidByte[i], HEX);
   }
   uid.toLowerCase();
+  
+  Serial.print("UID leído (hex): ");
+  Serial.println(uid);
 
   // --- Enviar al servidor ---
   if (WiFi.status() == WL_CONNECTED) {
+    unsigned long inicioLectura = millis();
+    
     HTTPClient http;
     http.begin(serverURL);
     http.addHeader("Content-Type", "application/json");
 
-    String payload = "{\"uid\":\"" + uid + "\"}";
+    String payload = "{\"uid\":\"" + uid + "\",\"instalacion_id\":" + String(INSTALACION_ID) + ",\"tiempo_lectura\":" + String(tiempoLectura) + ",\"tiempo_reconexion_wifi\":" + String(tiempoReconexionWiFi) + "}";
     int httpResponseCode = http.POST(payload);
+    
+    tiempoLectura = millis() - inicioLectura;
+    Serial.print("Tiempo de lectura: ");
+    Serial.print(tiempoLectura);
+    Serial.println(" ms");
 
     if (httpResponseCode > 0) {
       String response = http.getString();
       Serial.println("Respuesta servidor: " + response);
 
       if (response.indexOf("Acceso autorizado") != -1) {
+        Serial.println("✅ ACCESO AUTORIZADO - UID: " + uid);
         lcd.clear();
         lcd.setCursor(0, 0);
         lcd.print("Acceso Valido");
@@ -123,6 +166,8 @@ void loop() {
         lcd.print("Bienvenido");
         abrirCerradura();
       } else {
+        Serial.println("❌ ACCESO DENEGADO - UID: " + uid);
+        Serial.println("   Razón: " + response);
         lcd.clear();
         lcd.setCursor(0, 0);
         lcd.print("Acceso denegado");

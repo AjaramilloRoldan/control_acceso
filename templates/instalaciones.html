@@ -109,6 +109,7 @@
             </div>
             
             <form action="/reservar" method="POST" class="p-6 grid grid-cols-1 md:grid-cols-12 gap-6">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                 <input type="hidden" name="instalacion_id" id="modal_inst_id">
                 <input type="hidden" name="hora_inicio" id="input_hora_inicio">
                 <input type="hidden" name="hora_fin" id="input_hora_fin">
