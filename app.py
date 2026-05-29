@@ -3,7 +3,7 @@ import mysql.connector
 import os
 import time
 from datetime import datetime, timedelta, time as dt_time
-from zoneinfo import ZoneInfo  # <- Agregado para manejo de zona horaria nativo en Windows
+from zoneinfo import ZoneInfo
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import func
 from werkzeug.utils import secure_filename
@@ -15,7 +15,6 @@ from flask_wtf.csrf import CSRFProtect
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
-# Cargar variables de entorno
 load_dotenv()
 
 # Configuración de Zona Horaria para Colombia
