@@ -41,22 +41,22 @@
             <nav class="flex flex-col gap-2">
                 <p class="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-2 ml-4">Menú Principal</p>
                 <a href="/dashboard" class="flex items-center gap-3 px-4 py-3 bg-emerald-500/10 text-emerald-400 rounded-xl font-semibold border border-emerald-500/20 transition-all">
-                    <span></span> Dashboard
+                    <span>🏠</span> Dashboard
                 </a>
                 <a href="/usuarios" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl font-medium transition-all group">
-                    <span class="group-hover:scale-110 transition-transform"></span> Usuarios
+                    <span class="group-hover:scale-110 transition-transform">👥</span> Usuarios
                 </a>
                 <a href="/admin_instalaciones" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl font-medium transition-all group">
-                    <span class="text-lg group-hover:scale-110 transition-transform"></span>
+                    <span class="text-lg group-hover:scale-110 transition-transform">🏢</span>
                     <span class="tracking-wide">Instalaciones</span>
                 </a>
                 <a href="/historial" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl font-medium transition-all group">
-                    <span class="group-hover:scale-110 transition-transform"></span> Historial
+                    <span class="group-hover:scale-110 transition-transform">📝</span> Historial
                 </a>
                 
                 <div class="mt-4 pt-4 border-t border-white/5">
                     <a href="/logout" class="flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-red-500/10 rounded-xl font-medium transition-all group">
-                        <span class="group-hover:rotate-12 transition-transform"></span> Cerrar Sesión
+                        <span class="group-hover:rotate-12 transition-transform">🔒</span> Cerrar Sesión
                     </a>
                 </div>
             </nav>
@@ -251,7 +251,7 @@
                         shade: 'dark',
                         type: 'horizontal',
                         shadeIntensity: 0.5,
-                        gradientToColors: ['#34d399'],
+                        gradientToColors: ['#34d399'], // Verde menta brillante
                         inverseColors: true,
                         opacityFrom: 1,
                         opacityTo: 1,
@@ -261,7 +261,7 @@
                 stroke: {
                     lineCap: 'round'
                 },
-                colors: ['#059669'],
+                colors: ['#059669'], // Esmeralda base
                 labels: ['Efectividad'],
                 states: {
                     hover: {
