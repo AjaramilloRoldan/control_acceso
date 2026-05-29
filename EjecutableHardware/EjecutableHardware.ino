@@ -17,7 +17,7 @@
 #define LED_PIN 2      // LED azul integrado ESP32
 
 // --- LCD ---
-#define LCD_ADDR 0x27  // Cambia a 0x3F si tu módulo LCD lo usa
+#define LCD_ADDR 0x27  // Cambiar a 0x3F si el módulo LCD lo usa
 LiquidCrystal_PCF8574 lcd(LCD_ADDR);
 
 // --- RFID ---
@@ -32,7 +32,7 @@ const char* serverURL = "http://10.15.124.7:5000/historial";
 
 // --- ID de Instalación ---
 // Configurar según la ubicación física del lector RFID:
-// 1: Cancha de Squashhhh
+// 1: Cancha de Squash
 // 2: Sala de Juntas VIP
 // 3: Piscina Climatizada
 // 17: Prueba
@@ -158,7 +158,7 @@ void loop() {
       Serial.println("Respuesta servidor: " + response);
 
       if (response.indexOf("Acceso autorizado") != -1) {
-        Serial.println("✅ ACCESO AUTORIZADO - UID: " + uid);
+        Serial.println("ACCESO AUTORIZADO - UID: " + uid);
         lcd.clear();
         lcd.setCursor(0, 0);
         lcd.print("Acceso Valido");
@@ -166,7 +166,7 @@ void loop() {
         lcd.print("Bienvenido");
         abrirCerradura();
       } else {
-        Serial.println("❌ ACCESO DENEGADO - UID: " + uid);
+        Serial.println("ACCESO DENEGADO - UID: " + uid);
         Serial.println("   Razón: " + response);
         lcd.clear();
         lcd.setCursor(0, 0);
