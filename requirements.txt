@@ -7,3 +7,4 @@ flask-wtf==1.2.1
 flask-limiter==3.5.0
 Werkzeug==3.0.1
 tzdata==2025.2
+gunicorn==23.0.0

@@ -109,6 +109,7 @@ python migrate_passwords.py
 **IMPORTANTE:** Haz backup de tu base de datos antes de migrar.
 
 Para instalaciones existentes, agregar también el modelo de datos y las columnas de reservas:
+
 ```bash
 python migrate_modelo.py
 python migrate_reservas.py
@@ -133,13 +134,41 @@ El panel muestra `--` en las métricas sin datos. Tiempo de lectura y reconexió
 
 ## Configuración de Producción
 
-Para desplegar en producción:
+El sistema se despliega en Linux con Gunicorn detrás de Nginx, que termina TLS 1.2 o superior. `python app.py` es solo para desarrollo.
 
-1. Establecer `FLASK_DEBUG=False` en `.env`
-2. Generar un SECRET_KEY fuerte
-3. Usar HTTPS (recomendado)
-4. Configurar firewall apropiadamente
-5. Revisar logs de seguridad regularmente
+1. Copiar el proyecto en `/opt/control_acceso`, crear `venv` e instalar `requirements.txt`
+2. En `.env`: `FLASK_DEBUG=False`, un `SECRET_KEY` fuerte y `BEHIND_HTTPS_PROXY=True`
+3. Ejecutar los scripts `migrate_*.py`
+4. Instalar `deploy/control-acceso.service` en `/etc/systemd/system/` y activarlo con `systemctl enable --now control-acceso`
+5. Copiar `deploy/nginx.conf.example` a la configuración de Nginx, cambiar el dominio y obtener el certificado con Certbot
+6. Abrir solo los puertos 80 y 443 en el firewall
+7. Para el monitor de disponibilidad, usar `HEALTH_URL=http://127.0.0.1:8000/health`
+8. Revisar logs de seguridad regularmente
+
+Con `BEHIND_HTTPS_PROXY=True` la aplicación confía en las cabeceras `X-Forwarded-*` de un proxy, así que Gunicorn no debe quedar expuesto directamente: escucha solo en `127.0.0.1:8000`.
+
+Nginx redirige todo el tráfico a HTTPS. Antes de activarlo, el firmware del ESP32 debe usar `https://` con el certificado raíz; con la versión actual, que usa `http://`, los lectores dejarían de funcionar.
+
+### Respaldos
+
+`python respaldar_base.py` crea una copia comprimida en `BACKUP_DIR`, comprueba que esté completa y borra las copias automáticas con más de `BACKUP_RETENTION_DAYS` días, conservando siempre las 7 más recientes. Si falla, termina con código 1 y no toca las copias anteriores.
+
+Programarlo una vez al día para cumplir el RPO de 24 horas. En Linux, con `crontab -e`:
+
+```
+0 3 * * * cd /opt/control_acceso && venv/bin/python respaldar_base.py >> logs/respaldos.log 2>&1
+```
+
+Guardar `BACKUP_DIR` fuera del disco del servidor: una copia en el mismo disco no protege si ese disco falla.
+
+Para restaurar, primero en una base de prueba:
+
+```bash
+mysql -u root -p -e "CREATE DATABASE control_acceso_prueba"
+gunzip -c control_acceso_AAAAMMDD_HHMMSS.sql.gz | mysql -u root -p control_acceso_prueba
+```
+
+Hacer este simulacro cada trimestre y comparar los conteos de filas con la base real.
 
 ## Logs de Seguridad
 
@@ -160,6 +189,7 @@ Los logs de seguridad se almacenan en `logs/security.log`:
 - flask-wtf 1.2.1
 - flask-limiter 3.5.0
 - Werkzeug 3.0.1
+- gunicorn 23.0.0
 
 ## Estructura del Proyecto
 
@@ -181,6 +211,8 @@ control_acceso/
 │   ├── security.py             # Contraseñas, tokens y log de seguridad
 │   ├── validators.py           # Validación de inputs
 │   └── routes/                 # Rutas por área (blueprints)
+├── deploy/                     # Gunicorn, systemd y Nginx para producción
+├── respaldar_base.py           # Respaldo diario con retención
 ├── migrate_passwords.py        # Script de migración de contraseñas
 ├── requirements.txt            # Dependencias
 ├── .env.example               # Plantilla de configuración
