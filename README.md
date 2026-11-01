@@ -66,20 +66,23 @@ DB_USER=root
 DB_PASSWORD=tu_contraseña
 DB_NAME=control_acceso
 SECRET_KEY=generar_con_python_secrets
-DEVICE_TOKEN=generar_con_python_secrets
 FLASK_ENV=development
 FLASK_DEBUG=True
 ```
 
-`SECRET_KEY`, `DEVICE_TOKEN` y `DB_PASSWORD` son obligatorias: la aplicación no inicia sin ellas.
+`SECRET_KEY` y `DB_PASSWORD` son obligatorias: la aplicación no inicia sin ellas.
 
-### 3. Generar Secret Key y Device Token
-Ejecutar una vez por cada valor:
+### 3. Generar Secret Key
 ```bash
 python -c 'import secrets; print(secrets.token_hex(32))'
 ```
 
-Para el firmware, copiar `EjecutableHardware/secrets.example.h` como `EjecutableHardware/secrets.h` y usar el mismo `DEVICE_TOKEN`.
+Cada lector tiene su propio token. Para registrarlo:
+```bash
+python registrar_dispositivo.py 2 "Lector principal"
+```
+
+Para el firmware, copiar `EjecutableHardware/secrets.example.h` como `EjecutableHardware/secrets.h` y usar ese token.
 
 ### 4. Migrar Contraseñas Existentes
 Si tienes administradores o usuarios con contraseñas en texto plano, ejecuta:

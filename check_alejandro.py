@@ -28,7 +28,7 @@ def check_alejandro():
         print("=" * 60)
         print("BUSCANDO USUARIO ALEJANDRO")
         print("=" * 60)
-        cursor.execute("SELECT id, name, rfid, username FROM users WHERE name LIKE '%Alejandro%'")
+        cursor.execute("SELECT u.id, u.name, t.uid AS rfid, u.username FROM users u LEFT JOIN tarjetas t ON t.user_id = u.id AND t.estado = 'activa' WHERE u.name LIKE '%Alejandro%'")
         usuario = cursor.fetchone()
         
         if not usuario:
