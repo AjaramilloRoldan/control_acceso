@@ -55,8 +55,8 @@ def client(monkeypatch):
     with app.app_context():
         db.drop_all()
         db.create_all()
-        db.session.add(User(id=10, name='Ana', username='ana', email='ana@ucp.edu.co', password=hash_password('clave123')))
-        db.session.add(User(id=11, name='Luis', username='luis', password=hash_password('clave123')))
+        db.session.add(User(id=10, name='Ana', username='ana', email='ana@ucp.edu.co', password=hash_password('clave123'), autorizacion_datos=datetime(2026, 1, 1), version_aviso='1.0'))
+        db.session.add(User(id=11, name='Luis', username='luis', password=hash_password('clave123'), autorizacion_datos=datetime(2026, 1, 1), version_aviso='1.0'))
         db.session.add(Instalacion(id=1, nombre='Squash'))
         db.session.add(Dispositivo(id=1, instalacion_id=1, token_hash=hash_device_token(DEVICE_TOKEN)))
         db.session.add(Tarjeta(uid='aabbccdd', user_id=10))
