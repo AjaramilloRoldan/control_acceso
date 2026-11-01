@@ -1,0 +1,5 @@
+// Copiar como secrets.h (ignorado por git) y completar con los valores reales
+#define WIFI_SSID "nombre_de_la_red"
+#define WIFI_PASSWORD "contrasena_de_la_red"
+#define SERVER_URL "http://IP_DEL_SERVIDOR:5000/historial"
+#define DEVICE_TOKEN "mismo_valor_que_DEVICE_TOKEN_en_.env"
