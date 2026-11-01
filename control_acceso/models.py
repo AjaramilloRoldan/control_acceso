@@ -4,6 +4,8 @@ from .clock import hora_actual
 from .extensions import db
 
 ROLES_USUARIO = ('estudiante', 'docente', 'administrativo')
+MOTIVOS_REVOCACION = ('perdida', 'deterioro', 'retiro')
+VERSION_AVISO = '1.0'
 
 class User(db.Model):
     __tablename__ = 'users'

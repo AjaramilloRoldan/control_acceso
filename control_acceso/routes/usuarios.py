@@ -1,24 +1,62 @@
-from flask import Blueprint, current_app, flash, redirect, render_template, request, session, url_for
+from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, session, url_for
 from sqlalchemy.exc import IntegrityError
 
 from ..clock import hora_actual
 from ..extensions import db
-from ..models import Reserva, Tarjeta, User
+from ..models import MOTIVOS_REVOCACION, VERSION_AVISO, Reserva, Tarjeta, User
 from ..security import hash_password, log_security_event
 from ..validators import (normalize_uid, read_personal_data, validate_name, validate_password, validate_rfid,
                           validate_username)
 
 bp = Blueprint('usuarios', __name__)
 
+ENDPOINTS_SIN_AVISO = ('usuarios.autorizacion', 'auth.logout', 'static')
+
+def revoke_card(tarjeta, motivo):
+    tarjeta.estado = 'revocada'
+    tarjeta.motivo_revocacion = motivo
+    tarjeta.fecha_revocacion = hora_actual()
+
 def replace_active_card(usuario, uid):
     actual = usuario.tarjeta_activa
     if actual and actual.uid == uid:
         return
     if actual:
-        actual.estado = 'revocada'
-        actual.motivo_revocacion = 'reemplazo'
-        actual.fecha_revocacion = hora_actual()
+        revoke_card(actual, 'reemplazo')
     usuario.tarjetas.append(Tarjeta(uid=uid))
+
+@bp.before_app_request
+def require_privacy_notice():
+    if session.get('aviso_pendiente') and request.endpoint not in ENDPOINTS_SIN_AVISO:
+        return redirect(url_for('usuarios.autorizacion'))
+
+@bp.route('/autorizacion', methods=['GET', 'POST'])
+def autorizacion():
+    if session.get('role') != 'user': return redirect(url_for('auth.login'))
+    usuario = db.session.get(User, session['user_id'])
+
+    if request.method == 'GET':
+        return render_template('autorizacion.html', version_aviso=VERSION_AVISO)
+
+    if request.form.get('decision') == 'rechazar':
+        usuario.autorizacion_datos = None
+        usuario.version_aviso = None
+        db.session.commit()
+        log_security_event('PRIVACY_NOTICE_REJECTED', user_id=usuario.id, ip=request.remote_addr)
+        session.clear()
+        flash('Sin tu autorización no puedes usar la plataforma ni tu tarjeta. El administrador verá tu registro como pendiente.', 'error')
+        return redirect(url_for('auth.login'))
+
+    if request.form.get('acepto') != 'on':
+        flash('Debes marcar la casilla para aceptar el aviso de privacidad', 'error')
+        return redirect(url_for('usuarios.autorizacion'))
+
+    usuario.autorizacion_datos = hora_actual()
+    usuario.version_aviso = VERSION_AVISO
+    db.session.commit()
+    session.pop('aviso_pendiente', None)
+    log_security_event('PRIVACY_NOTICE_ACCEPTED', user_id=usuario.id, details=f'Versión: {VERSION_AVISO}', ip=request.remote_addr)
+    return redirect(url_for('reservas.instalaciones'))
 
 @bp.route('/usuarios')
 def usuarios():
@@ -103,7 +141,7 @@ def editar_usuario(id):
             flash('Error: Nombre inválido (mínimo 2 caracteres, máximo 100)', 'error')
             return redirect(url_for('usuarios.editar_usuario', id=id))
         
-        if not validate_rfid(rfid):
+        if (rfid or usuario.tarjeta_activa) and not validate_rfid(rfid):
             flash('Error: RFID inválido (hexadecimal, de 8 a 20 caracteres)', 'error')
             return redirect(url_for('usuarios.editar_usuario', id=id))
         
@@ -119,7 +157,8 @@ def editar_usuario(id):
         usuario.username = username
         for campo, valor in datos_personales.items():
             setattr(usuario, campo, valor)
-        replace_active_card(usuario, rfid)
+        if rfid:
+            replace_active_card(usuario, rfid)
         if password:
             usuario.password = hash_password(password)
             
@@ -133,7 +172,42 @@ def editar_usuario(id):
             flash('Error: El RFID, usuario, correo o identificación ya existen', 'error')
             return redirect(url_for('usuarios.editar_usuario', id=id))
             
-    return render_template('editar_usuario.html', usuario=usuario)
+    return render_template('editar_usuario.html', usuario=usuario, motivos_revocacion=MOTIVOS_REVOCACION)
+
+@bp.route('/usuarios/<int:id>/tarjeta/eliminar', methods=['POST'])
+def revocar_tarjeta(id):
+    if session.get('role') != 'admin': return redirect(url_for('auth.login'))
+    usuario = User.query.get_or_404(id)
+    tarjeta = usuario.tarjeta_activa
+    if tarjeta is None:
+        abort(404)
+
+    motivo = request.form.get('motivo')
+    nuevo_uid = normalize_uid(request.form.get('nuevo_uid', ''))
+    client_ip = request.remote_addr
+    if motivo not in MOTIVOS_REVOCACION:
+        flash('Error: Selecciona el motivo de la revocación', 'error')
+        return redirect(url_for('usuarios.editar_usuario', id=id))
+    if nuevo_uid and not validate_rfid(nuevo_uid):
+        flash('Error: RFID inválido (hexadecimal, de 8 a 20 caracteres)', 'error')
+        return redirect(url_for('usuarios.editar_usuario', id=id))
+
+    revoke_card(tarjeta, motivo)
+    db.session.commit()
+    log_security_event('CARD_REVOKED', user_id=id, details=f'UID: {tarjeta.uid}; motivo: {motivo}', ip=client_ip)
+
+    if nuevo_uid:
+        usuario.tarjetas.append(Tarjeta(uid=nuevo_uid))
+        try:
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+            flash('La tarjeta quedó revocada, pero el nuevo RFID ya está asociado a otra tarjeta', 'error')
+            return redirect(url_for('usuarios.editar_usuario', id=id))
+        log_security_event('CARD_ASSIGNED', user_id=id, details=f'UID: {nuevo_uid}', ip=client_ip)
+
+    flash('Tarjeta revocada correctamente', 'success')
+    return redirect(url_for('usuarios.editar_usuario', id=id))
 
 # --- Eliminar Usuario ---
 

@@ -22,8 +22,8 @@ CARGA = {'id_usuario': '20', 'id_espacios': '1', 'dia_semana': '2', 'hora_inicio
 @pytest.fixture
 def people(client):
     with app.app_context():
-        db.session.add(User(id=20, name='Dora', username='dora', rol='docente', password=hash_password('clave123')))
-        db.session.add(User(id=21, name='Aseo', username='aseo', rol='administrativo', password=hash_password('clave123')))
+        db.session.add(User(id=20, name='Dora', username='dora', rol='docente', password=hash_password('clave123'), autorizacion_datos=datetime(2026, 1, 1), version_aviso='1.0'))
+        db.session.add(User(id=21, name='Aseo', username='aseo', rol='administrativo', password=hash_password('clave123'), autorizacion_datos=datetime(2026, 1, 1), version_aviso='1.0'))
         db.session.add(Tarjeta(uid='20202020', user_id=20))
         db.session.add(Tarjeta(uid='21212121', user_id=21))
         db.session.commit()

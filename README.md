@@ -149,6 +149,12 @@ Con `BEHIND_HTTPS_PROXY=True` la aplicación confía en las cabeceras `X-Forward
 
 Nginx redirige todo el tráfico a HTTPS. Antes de activarlo, el firmware del ESP32 debe usar `https://` con el certificado raíz; con la versión actual, que usa `http://`, los lectores dejarían de funcionar.
 
+### Autorización de Datos
+
+Cada usuario debe aceptar el aviso de privacidad en su primer inicio de sesión. Sin esa autorización no entra a la plataforma y el lector lo deniega con `SIN_AUTORIZACION_DATOS`, aunque tenga reserva. Los usuarios ya registrados también deben aceptarlo antes de volver a abrir una puerta.
+
+El texto está en `templates/autorizacion.html`. Al publicar un cambio, subir `VERSION_AVISO` en `control_acceso/models.py`: se pedirá de nuevo la aceptación en el siguiente inicio de sesión, sin bloquear las tarjetas mientras tanto.
+
 ### Respaldos
 
 `python respaldar_base.py` crea una copia comprimida en `BACKUP_DIR`, comprueba que esté completa y borra las copias automáticas con más de `BACKUP_RETENTION_DAYS` días, conservando siempre las 7 más recientes. Si falla, termina con código 1 y no toca las copias anteriores.
