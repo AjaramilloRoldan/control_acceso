@@ -56,6 +56,9 @@
                 <a href="/reportes" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl font-medium transition-all group">
                     <span class="group-hover:scale-110 transition-transform">📊</span> Reportes
                 </a>
+                <a href="/dispositivos" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl font-medium transition-all group">
+                    <span class="group-hover:scale-110 transition-transform">📡</span> Lectores
+                </a>
                 <a href="/historial" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl font-medium transition-all group">
                     <span class="group-hover:scale-110 transition-transform">📝</span> Historial
                 </a>
@@ -90,8 +93,8 @@
 
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
                 <div class="glass p-6 rounded-3xl border-l-4 border-l-blue-500 hover:scale-105 transition-transform">
-                    <p class="text-slate-400 text-xs font-bold uppercase tracking-widest">Accesos Hoy</p>
-                    <h2 class="text-3xl font-bold text-white mt-2">{{ accesos_hoy }}</h2>
+                    <p class="text-slate-400 text-xs font-bold uppercase tracking-widest">Autorizados Hoy</p>
+                    <h2 id="autorizados-hoy" class="text-3xl font-bold text-white mt-2">{{ accesos_hoy - denegados_hoy }}</h2>
                 </div>
                 <div class="glass p-6 rounded-3xl border-l-4 border-l-emerald-500 hover:scale-105 transition-transform">
                     <p class="text-slate-400 text-xs font-bold uppercase tracking-widest">Usuarios Activos</p>
@@ -103,7 +106,7 @@
                 </div>
                 <div class="glass p-6 rounded-3xl border-l-4 border-l-red-500 hover:scale-105 transition-transform">
                     <p class="text-slate-400 text-xs font-bold uppercase tracking-widest">Denegados Hoy</p>
-                    <h2 class="text-3xl font-bold text-white mt-2">{{ denegados_hoy }}</h2>
+                    <h2 id="denegados-hoy" class="text-3xl font-bold text-white mt-2">{{ denegados_hoy }}</h2>
                 </div>
             </div>
 
@@ -122,6 +125,49 @@
                     <p class="text-slate-400 text-xs font-bold uppercase tracking-widest">Reconexión WiFi</p>
                     <h2 class="text-3xl font-bold text-white mt-2"><span id="reconexion-wifi">--</span> seg</h2>
                     <p class="text-slate-500 text-xs mt-1">Tiempo promedio</p>
+                </div>
+            </div>
+
+            <p id="monitoreo-aviso" class="hidden mb-6 p-4 rounded-xl text-sm border bg-amber-500/10 border-amber-500/20 text-amber-300"></p>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-10">
+                <div class="lg:col-span-3 glass p-8 rounded-3xl shadow-2xl">
+                    <h3 class="text-xl font-bold text-white mb-6">Últimos Accesos</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="text-slate-500 text-xs uppercase tracking-widest border-b border-white/10 text-left">
+                                    <th class="py-3 pr-4">Fecha</th>
+                                    <th class="py-3 pr-4">Usuario</th>
+                                    <th class="py-3 pr-4">Espacio</th>
+                                    <th class="py-3 pr-4">Resultado</th>
+                                    <th class="py-3">Motivo</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ultimos-accesos"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="lg:col-span-2 glass p-8 rounded-3xl shadow-2xl">
+                    <h3 class="text-xl font-bold text-white mb-6">Reservas de Hoy</h3>
+                    <div class="overflow-x-auto max-h-80 overflow-y-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="text-slate-500 text-xs uppercase tracking-widest border-b border-white/10 text-left">
+                                    <th class="py-3 pr-4">Franja</th>
+                                    <th class="py-3 pr-4">Espacio</th>
+                                    <th class="py-3">Usuario</th>
+                                </tr>
+                            </thead>
+                            <tbody id="reservas-hoy"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="glass p-8 rounded-3xl shadow-2xl">
+                    <h3 class="text-xl font-bold text-white mb-6">Lectores</h3>
+                    <ul id="lectores" class="space-y-3 text-sm"></ul>
                 </div>
             </div>
 
@@ -320,6 +366,81 @@
         function registrarTarjeta(uid) {
             window.location.href = `/agregar_usuario?rfid=${uid}`;
         }
+
+        // Monitoreo: actualización cada 5 segundos
+        let ultimaActualizacion = new Date();
+
+        function llenarTabla(id, filas, columnas, vacio) {
+            const cuerpo = document.getElementById(id);
+            cuerpo.replaceChildren(...filas.map(fila => {
+                const tr = document.createElement('tr');
+                tr.className = 'border-b border-white/5';
+                columnas.forEach(columna => {
+                    const td = document.createElement('td');
+                    td.className = 'py-3 pr-4 text-slate-300';
+                    td.textContent = columna(fila);
+                    tr.appendChild(td);
+                });
+                return tr;
+            }));
+            if (filas.length === 0) {
+                const tr = document.createElement('tr');
+                const td = document.createElement('td');
+                td.colSpan = columnas.length;
+                td.className = 'py-6 text-center text-slate-500';
+                td.textContent = vacio;
+                tr.appendChild(td);
+                cuerpo.appendChild(tr);
+            }
+        }
+
+        function llenarLectores(lectores) {
+            const lista = document.getElementById('lectores');
+            lista.replaceChildren(...lectores.map(lector => {
+                const li = document.createElement('li');
+                const nombre = document.createElement('p');
+                nombre.className = 'font-semibold text-slate-200';
+                nombre.textContent = `${lector.espacio} · ${lector.descripcion}`;
+                const conexion = document.createElement('p');
+                conexion.className = 'text-xs text-slate-500';
+                conexion.textContent = lector.ultima_conexion ? `Última conexión: ${lector.ultima_conexion}` : 'Sin conexiones';
+                li.append(nombre, conexion);
+                return li;
+            }));
+            if (lectores.length === 0) {
+                const li = document.createElement('li');
+                li.className = 'text-slate-500';
+                li.textContent = 'Sin lectores activos';
+                lista.appendChild(li);
+            }
+        }
+
+        async function actualizarMonitoreo() {
+            const aviso = document.getElementById('monitoreo-aviso');
+            try {
+                const response = await fetch('/api/monitoreo');
+                if (!response.ok) throw new Error(`Respuesta ${response.status}`);
+                const data = await response.json();
+
+                document.getElementById('autorizados-hoy').textContent = data.autorizados_hoy;
+                document.getElementById('denegados-hoy').textContent = data.denegados_hoy;
+                llenarTabla('ultimos-accesos', data.ultimos_accesos,
+                    [a => a.fecha, a => a.usuario, a => a.espacio, a => a.autorizado ? 'Autorizado' : 'Denegado', a => a.motivo],
+                    'Sin accesos registrados');
+                llenarTabla('reservas-hoy', data.reservas_hoy, [r => r.franja, r => r.espacio, r => r.usuario], 'Sin reservas para hoy');
+                llenarLectores(data.dispositivos);
+
+                ultimaActualizacion = new Date();
+                aviso.classList.add('hidden');
+            } catch (error) {
+                console.error('Error al actualizar el monitoreo', error);
+                aviso.textContent = `Datos desactualizados desde ${ultimaActualizacion.toLocaleTimeString('es-ES')}`;
+                aviso.classList.remove('hidden');
+            }
+        }
+
+        actualizarMonitoreo();
+        setInterval(actualizarMonitoreo, 5000);
     </script>
 </body>
 </html>

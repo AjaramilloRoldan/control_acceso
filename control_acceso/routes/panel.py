@@ -1,15 +1,19 @@
 from datetime import timedelta
 
-from flask import Blueprint, jsonify, redirect, render_template, session, url_for
+from flask import Blueprint, abort, jsonify, redirect, render_template, request, session, url_for
 from sqlalchemy import func
 
 from .. import database
 from ..clock import hora_actual
 from ..extensions import db, limiter
 from ..metrics import ULTIMOS_ACCESOS_METRICAS, calcular_disponibilidad, percentil_95
-from ..models import Instalacion, Reserva
+from ..models import AccessLog, Dispositivo, Instalacion, Reserva, User
+from ..reports import FILAS_POR_PAGINA, PeriodoInvalido, consulta_bitacora
+from .reportes import parse_filter_date
 
 bp = Blueprint('panel', __name__)
+
+ACCESOS_EN_PANEL = 10
 
 @bp.route('/dashboard')
 def dashboard():
@@ -124,19 +128,62 @@ def get_denegados():
     
     return jsonify({"denegados": denegados})
 
+def filas_de_acceso(registros):
+    return [{'fecha': acceso.timestamp.strftime('%Y-%m-%d %H:%M:%S'), 'usuario': usuario or 'No registrado',
+             'espacio': espacio or 'Sin espacio', 'autorizado': acceso.success, 'motivo': acceso.motivo or ''}
+            for acceso, usuario, espacio in registros]
+
+@bp.route('/api/monitoreo')
+@limiter.exempt
+def monitoreo():
+    if session.get('role') != 'admin': return jsonify({"error": "Unauthorized"}), 401
+
+    ahora = hora_actual()
+    conteo = dict(db.session.query(AccessLog.success, func.count(AccessLog.id))
+                  .filter(AccessLog.timestamp >= ahora.replace(hour=0, minute=0, second=0, microsecond=0)).group_by(AccessLog.success).all())
+    reservas = db.session.query(Reserva, User.name, Instalacion.nombre) \
+        .join(User, Reserva.user_id == User.id).join(Instalacion, Reserva.instalacion_id == Instalacion.id) \
+        .filter(Reserva.fecha_reserva == ahora.date(), Reserva.estado == 'activa').order_by(Reserva.hora_inicio).all()
+    lectores = db.session.query(Dispositivo, Instalacion.nombre) \
+        .join(Instalacion, Dispositivo.instalacion_id == Instalacion.id) \
+        .filter(Dispositivo.estado == 'activo').order_by(Instalacion.nombre).all()
+
+    return jsonify({
+        "autorizados_hoy": conteo.get(True, 0),
+        "denegados_hoy": conteo.get(False, 0),
+        "ultimos_accesos": filas_de_acceso(consulta_bitacora().limit(ACCESOS_EN_PANEL).all()),
+        "reservas_hoy": [{'franja': f"{reserva.hora_inicio.strftime('%H:%M')} - {reserva.hora_fin.strftime('%H:%M')}",
+                          'usuario': usuario, 'espacio': espacio} for reserva, usuario, espacio in reservas],
+        "dispositivos": [{'descripcion': lector.descripcion or 'Sin descripción', 'espacio': espacio,
+                          'ultima_conexion': lector.ultima_conexion.strftime('%Y-%m-%d %H:%M:%S') if lector.ultima_conexion else None}
+                         for lector, espacio in lectores],
+    })
+
 @bp.route('/historial')
 @limiter.exempt
 def historial():
-    if session.get('role') != 'admin': return redirect(url_for('auth.login'))
+    rol = session.get('role')
+    if rol not in ('admin', 'user'): return redirect(url_for('auth.login'))
 
-    conn = database.get_db()
-    cursor = conn.cursor(dictionary=True)
-    cursor.execute("""
-        SELECT al.id, COALESCE(u.name, 'No registrado') as usuario, al.timestamp as fecha,
-        CASE WHEN al.success = 1 THEN '✅ Autorizado' ELSE '❌ Denegado' END as estado
-        FROM access_log al LEFT JOIN users u ON al.user_id = u.id ORDER BY al.timestamp DESC
-    """)
-    logs = cursor.fetchall()
-    cursor.close()
-    conn.close()
-    return render_template('historial.html', logs=logs)
+    usuario_id = request.args.get('id_usuario', type=int)
+    if rol == 'user':
+        if usuario_id not in (None, session['user_id']):
+            abort(403)
+        usuario_id = session['user_id']
+
+    filtros = {clave: valor for clave, valor in request.args.items() if valor and clave != 'pagina'}
+    contexto = {'es_admin': rol == 'admin', 'filtros': filtros, 'espacios': Instalacion.query.order_by(Instalacion.nombre).all(),
+                'motivos': [fila[0] for fila in db.session.query(AccessLog.motivo).filter(AccessLog.motivo.isnot(None)).distinct().order_by(AccessLog.motivo)],
+                'usuarios': User.query.order_by(User.name).all() if rol == 'admin' else []}
+    try:
+        desde = parse_filter_date('fecha_desde', None)
+        hasta = parse_filter_date('fecha_hasta', None)
+        if desde and hasta and desde > hasta:
+            raise PeriodoInvalido('La fecha inicial es posterior a la final')
+    except PeriodoInvalido as error:
+        return render_template('historial.html', error=str(error), logs=[], paginacion=None, **contexto), 400
+
+    paginacion = consulta_bitacora(desde, hasta, request.args.get('id_espacios', type=int), usuario_id,
+                                   request.args.get('resultado'), request.args.get('motivo') or None) \
+        .paginate(page=request.args.get('pagina', 1, type=int), per_page=FILAS_POR_PAGINA, error_out=False)
+    return render_template('historial.html', error=None, logs=filas_de_acceso(paginacion.items), paginacion=paginacion, **contexto)

@@ -11,6 +11,7 @@ MAXIMO_DIAS_PERIODO = 366
 DENEGACIONES_PARA_MARCAR = 3
 VENTANA_DENEGACIONES = timedelta(minutes=10)
 FILAS_EN_PANTALLA = 500
+FILAS_POR_PAGINA = 20
 PREFIJOS_DE_FORMULA = ('=', '+', '-', '@')
 
 HORAS_HABILES_POR_DIA = HORA_CIERRE.hour - HORA_APERTURA.hour
@@ -146,6 +147,25 @@ def reporte_denegados(desde, hasta):
              'filas': uids_marcados(momentos)},
         ],
     }
+
+
+def consulta_bitacora(desde=None, hasta=None, instalacion_id=None, user_id=None, resultado=None, motivo=None):
+    consulta = db.session.query(AccessLog, User.name, Instalacion.nombre) \
+        .outerjoin(User, AccessLog.user_id == User.id) \
+        .outerjoin(Instalacion, AccessLog.instalacion_id == Instalacion.id)
+    if desde:
+        consulta = consulta.filter(AccessLog.timestamp >= datetime.combine(desde, time.min))
+    if hasta:
+        consulta = consulta.filter(AccessLog.timestamp < datetime.combine(hasta + timedelta(days=1), time.min))
+    if instalacion_id:
+        consulta = consulta.filter(AccessLog.instalacion_id == instalacion_id)
+    if user_id:
+        consulta = consulta.filter(AccessLog.user_id == user_id)
+    if resultado in ('autorizado', 'denegado'):
+        consulta = consulta.filter(AccessLog.success == (resultado == 'autorizado'))
+    if motivo:
+        consulta = consulta.filter(AccessLog.motivo == motivo)
+    return consulta.order_by(AccessLog.timestamp.desc(), AccessLog.id.desc())
 
 
 def reporte_bitacora(desde, hasta, instalacion_id=None):

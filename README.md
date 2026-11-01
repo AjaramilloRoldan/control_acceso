@@ -149,6 +149,10 @@ Con `BEHIND_HTTPS_PROXY=True` la aplicación confía en las cabeceras `X-Forward
 
 Nginx redirige todo el tráfico a HTTPS. Antes de activarlo, el firmware del ESP32 debe usar `https://` con el certificado raíz; con la versión actual, que usa `http://`, los lectores dejarían de funcionar.
 
+### Lectores
+
+En `/dispositivos` el administrador registra un lector y recibe su token una sola vez; va en `DEVICE_TOKEN` de `secrets.h`. El firmware debe usar como `INSTALACION_ID` el valor que muestra esa pantalla. Desde ahí también se revoca: el lector recibe 401 desde su siguiente lectura. `registrar_dispositivo.py` hace el registro por consola.
+
 ### Autorización de Datos
 
 Cada usuario debe aceptar el aviso de privacidad en su primer inicio de sesión. Sin esa autorización no entra a la plataforma y el lector lo deniega con `SIN_AUTORIZACION_DATOS`, aunque tenga reserva. Los usuarios ya registrados también deben aceptarlo antes de volver a abrir una puerta.
@@ -218,6 +222,7 @@ control_acceso/
 │   ├── validators.py           # Validación de inputs
 │   └── routes/                 # Rutas por área (blueprints)
 ├── deploy/                     # Gunicorn, systemd y Nginx para producción
+├── registrar_dispositivo.py    # Registro de lectores por consola
 ├── respaldar_base.py           # Respaldo diario con retención
 ├── migrate_passwords.py        # Script de migración de contraseñas
 ├── requirements.txt            # Dependencias
