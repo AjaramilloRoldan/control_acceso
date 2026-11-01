@@ -29,7 +29,7 @@
         .animate-blob { animation: blob 7s infinite alternate; }
     </style>
 </head>
-<body class="bg-[#0b1120] text-slate-200 min-h-screen flex flex-col font-sans overflow-hidden">
+<body class="bg-[#0b1120] text-slate-200 min-h-screen flex flex-col font-sans overflow-x-hidden">
 
     <div class="fixed inset-0 z-0 overflow-hidden pointer-events-none">
         <div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/10 rounded-full blur-[120px] animate-blob"></div>
@@ -62,6 +62,10 @@
                 <h2 class="text-3xl font-black text-white tracking-tight mb-2">Modificar Credenciales</h2>
                 <p class="text-slate-400 text-sm">Actualice la información de acceso del usuario de forma segura.</p>
             </div>
+
+            {% for categoria, mensaje in get_flashed_messages(with_categories=true) %}
+            <p class="mb-6 p-4 rounded-xl text-sm border {{ 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' if categoria == 'success' else 'bg-red-500/10 border-red-500/20 text-red-400' }}">{{ mensaje }}</p>
+            {% endfor %}
 
             <form method="POST" class="space-y-8">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
@@ -97,10 +101,14 @@
                     <div class="group">
                         <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 ml-1 group-focus-within:text-emerald-400 transition-colors">Código RFID (Lectura)</label>
                         <div class="relative">
-                            <input type="text" name="rfid" value="{{ usuario.rfid }}" required 
+                            <input type="text" name="rfid" value="{{ usuario.rfid }}"{{ ' required' if usuario.tarjeta_activa }}
                                 class="w-full px-6 py-4 input-glass rounded-2xl text-emerald-400 font-mono font-bold focus:outline-none"
                                 placeholder="HEX-CODE">
+                            {% if usuario.tarjeta_activa %}
                             <span class="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] bg-emerald-500/10 text-emerald-500 px-2 py-1 rounded-md border border-emerald-500/20">Activo</span>
+                            {% else %}
+                            <span class="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] bg-amber-500/10 text-amber-500 px-2 py-1 rounded-md border border-amber-500/20">Sin tarjeta</span>
+                            {% endif %}
                         </div>
                     </div>
 
@@ -138,6 +146,41 @@
                     </button>
                 </div>
             </form>
+
+            <div class="mt-10 pt-8 border-t border-white/5">
+                <h3 class="text-lg font-bold text-white mb-1">Tarjeta RFID</h3>
+                {% if usuario.tarjeta_activa %}
+                <p class="text-slate-400 text-sm mb-6">La revocación aplica desde la siguiente lectura en cualquier puerta.</p>
+                <form method="POST" action="{{ url_for('usuarios.revocar_tarjeta', id=usuario.id) }}" class="grid grid-cols-1 md:grid-cols-2 gap-6" onsubmit="return confirm('¿Revocar la tarjeta {{ usuario.rfid }}? Esta acción no se puede deshacer.')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <div>
+                        <label for="motivo" class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 ml-1">Motivo</label>
+                        <select id="motivo" name="motivo" required class="w-full px-6 py-4 input-glass rounded-2xl text-white focus:outline-none">
+                            <option value="">Seleccionar</option>
+                            {% for motivo in motivos_revocacion %}
+                            <option value="{{ motivo }}">{{ {'perdida': 'Pérdida', 'deterioro': 'Deterioro', 'retiro': 'Retiro'}[motivo] }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label for="nuevo_uid" class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 ml-1">Nueva tarjeta (opcional)</label>
+                        <input type="text" id="nuevo_uid" name="nuevo_uid" maxlength="29" class="w-full px-6 py-4 input-glass rounded-2xl text-emerald-400 font-mono font-bold focus:outline-none" placeholder="HEX-CODE">
+                    </div>
+                    <button type="submit" class="md:col-span-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 font-bold py-4 rounded-2xl border border-red-500/20 transition-all">Revocar tarjeta</button>
+                </form>
+                {% else %}
+                <p class="text-slate-400 text-sm">Este usuario no tiene tarjeta activa. Escribe un RFID nuevo en el formulario de arriba para asignarla.</p>
+                {% endif %}
+
+                {% set revocadas = usuario.tarjetas | rejectattr('estado', 'equalto', 'activa') | list %}
+                {% if revocadas %}
+                <ul class="mt-6 space-y-2 text-xs text-slate-500">
+                    {% for tarjeta in revocadas %}
+                    <li class="flex justify-between gap-4"><span class="font-mono">{{ tarjeta.uid }}</span><span>{{ tarjeta.motivo_revocacion or 'Sin motivo' }} · {{ tarjeta.fecha_revocacion.strftime('%Y-%m-%d %H:%M') if tarjeta.fecha_revocacion else 'Sin fecha' }}</span></li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+            </div>
         </section>
     </main>
 

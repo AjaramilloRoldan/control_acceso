@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Aviso de Privacidad - Access Pro</title>
+    <link rel="icon" href="/static/pestana.png" />
+    <script src="https://cdn.jsdelivr.net/npm/tailwindcss-cdn@3.4.10/tailwindcss.js"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: { fontFamily: { sans: ["Plus Jakarta Sans", "sans-serif"] } },
+        },
+      };
+    </script>
+  </head>
+  <body class="bg-[#0b1120] text-slate-200 min-h-screen font-sans">
+    <main class="max-w-2xl mx-auto px-4 py-10">
+      <section
+        class="bg-slate-900/60 border border-white/5 p-6 md:p-10 rounded-3xl"
+      >
+        <p
+          class="text-xs text-slate-500 uppercase tracking-widest font-semibold mb-2"
+        >
+          Versión {{ version_aviso }}
+        </p>
+        <h1 class="text-2xl md:text-3xl font-black text-white mb-6">
+          Aviso de privacidad
+        </h1>
+
+        {% for categoria, mensaje in get_flashed_messages(with_categories=true)
+        %}
+        <p
+          class="mb-6 p-4 rounded-xl text-sm border bg-red-500/10 border-red-500/20 text-red-400"
+        >
+          {{ mensaje }}
+        </p>
+        {% endfor %}
+
+        <div class="space-y-4 text-sm text-slate-300 leading-relaxed">
+          <p>
+            La Universidad Católica de Pereira, como responsable del
+            tratamiento, recolecta tus datos para administrar el acceso a sus
+            espacios físicos, conforme a la Ley 1581 de 2012 y al Decreto 1377
+            de 2013.
+          </p>
+          <p>
+            <strong class="text-white">Datos tratados:</strong> nombre,
+            apellido, identificación, correo electrónico, rol institucional,
+            código de tu tarjeta RFID, reservas y registro de ingresos por
+            puerta.
+          </p>
+          <p>
+            <strong class="text-white">Finalidades:</strong> validar tu ingreso
+            a los espacios, gestionar tus reservas, enviarte notificaciones
+            sobre ellas y generar reportes de uso.
+          </p>
+          <p>
+            <strong class="text-white">Conservación:</strong> el registro de
+            accesos se conserva durante 24 meses y solo el administrador puede
+            consultarlo completo.
+          </p>
+          <p>
+            <strong class="text-white">Tus derechos:</strong> puedes conocer,
+            actualizar y rectificar tus datos, solicitar prueba de esta
+            autorización, revocarla o pedir la supresión de tus datos cuando sea
+            procedente, y presentar quejas ante la Superintendencia de Industria
+            y Comercio.
+          </p>
+          <p>
+            Si no autorizas el tratamiento no podrás usar la plataforma y tu
+            tarjeta no abrirá ninguna puerta.
+          </p>
+        </div>
+
+        <form method="POST" class="mt-8 space-y-6">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <label
+            class="flex items-start gap-3 text-sm text-white cursor-pointer"
+          >
+            <input type="checkbox" name="acepto" class="mt-1 h-4 w-4" />
+            <span
+              >He leído el aviso de privacidad y autorizo el tratamiento de mis
+              datos personales.</span
+            >
+          </label>
+          <div class="flex flex-col sm:flex-row gap-3">
+            <button
+              type="submit"
+              name="decision"
+              value="aceptar"
+              class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-colors"
+            >
+              Aceptar y continuar
+            </button>
+            <button
+              type="submit"
+              name="decision"
+              value="rechazar"
+              class="flex-1 bg-white/5 hover:bg-white/10 text-slate-300 font-bold py-3 rounded-xl transition-colors"
+            >
+              No autorizo
+            </button>
+          </div>
+        </form>
+      </section>
+    </main>
+  </body>
+</html>

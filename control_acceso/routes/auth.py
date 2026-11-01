@@ -2,7 +2,7 @@ from flask import Blueprint, redirect, render_template, request, session, url_fo
 
 from .. import database
 from ..extensions import limiter
-from ..models import User
+from ..models import VERSION_AVISO, User
 from ..security import log_security_event, verify_password
 
 bp = Blueprint('auth', __name__)
@@ -44,6 +44,9 @@ def login():
             cursor.close()
             conn.close()
             log_security_event('LOGIN_SUCCESS', user_id=user.id, details='User login', ip=client_ip)
+            if user.version_aviso != VERSION_AVISO:
+                session['aviso_pendiente'] = True
+                return redirect(url_for('usuarios.autorizacion'))
             return redirect(url_for('reservas.instalaciones'))
         
         # Login fallido
