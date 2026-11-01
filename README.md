@@ -94,6 +94,14 @@ python migrate_passwords.py
 python app.py
 ```
 
+### 6. Medir la Disponibilidad
+En otra terminal, junto a `app.py`:
+```bash
+python monitor_disponibilidad.py
+```
+
+El panel muestra `--` en las métricas sin datos. Tiempo de lectura y reconexión WiFi solo usan accesos registrados con `instalacion_id` (`python migrate_metricas.py` agrega la columna); los registros anteriores se conservan, pero no entran en esos cálculos.
+
 ## Configuración de Producción
 
 Para desplegar en producción:

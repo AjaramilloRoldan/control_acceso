@@ -118,7 +118,9 @@ void loop() {
   wifiConectadoAnterior = wifiConectadoActual;
 
   // --- Esperar tarjeta ---
-  if (!mfrc522.PICC_IsNewCardPresent() || !mfrc522.PICC_ReadCardSerial()) return;
+  if (!mfrc522.PICC_IsNewCardPresent()) return;
+  unsigned long inicioValidacion = millis();
+  if (!mfrc522.PICC_ReadCardSerial()) return;
 
   // --- Leer UID ---
   String uid = "";
@@ -133,23 +135,24 @@ void loop() {
 
   // --- Enviar al servidor ---
   if (WiFi.status() == WL_CONNECTED) {
-    unsigned long inicioLectura = millis();
-    
     HTTPClient http;
     http.begin(SERVER_URL);
     http.addHeader("Content-Type", "application/json");
     http.addHeader("X-Device-Token", DEVICE_TOKEN);
 
-    String payload = "{\"uid\":\"" + uid + "\",\"instalacion_id\":" + String(INSTALACION_ID) + ",\"tiempo_lectura\":" + String(tiempoLectura) + ",\"tiempo_reconexion_wifi\":" + String(tiempoReconexionWiFi) + "}";
+    String payload = "{\"uid\":\"" + uid + "\",\"instalacion_id\":" + String(INSTALACION_ID) + ",\"tiempo_reconexion_wifi\":" + String(tiempoReconexionWiFi) + "}";
     int httpResponseCode = http.POST(payload);
     
-    tiempoLectura = millis() - inicioLectura;
-    Serial.print("Tiempo de lectura: ");
-    Serial.print(tiempoLectura);
-    Serial.println(" ms");
+    long logId = 0;
 
     if (httpResponseCode > 0) {
       String response = http.getString();
+      tiempoLectura = millis() - inicioValidacion;
+      tiempoReconexionWiFi = 0;
+      logId = extraerLogId(response);
+      Serial.print("Tiempo de lectura: ");
+      Serial.print(tiempoLectura);
+      Serial.println(" ms");
       Serial.println("Respuesta servidor: " + response);
 
       if (response.indexOf("Acceso autorizado") != -1) {
@@ -179,6 +182,7 @@ void loop() {
     }
 
     http.end();
+    if (logId > 0) reportarTiempoLectura(logId);
   } else {
     Serial.println("WiFi desconectado");
     lcd.clear();
@@ -195,6 +199,22 @@ void loop() {
   lcd.setCursor(0, 0);
   lcd.print("Acercar tarjeta");
   delay(300);
+}
+
+long extraerLogId(const String& response) {
+  int inicio = response.indexOf("\"log_id\":");
+  if (inicio == -1) return 0;
+  return response.substring(inicio + 9).toInt();
+}
+
+// El tiempo total solo se conoce al recibir la respuesta, por eso se envía aparte
+void reportarTiempoLectura(long logId) {
+  HTTPClient http;
+  http.begin(METRICS_URL);
+  http.addHeader("Content-Type", "application/json");
+  http.addHeader("X-Device-Token", DEVICE_TOKEN);
+  http.POST("{\"log_id\":" + String(logId) + ",\"tiempo_lectura\":" + String(tiempoLectura) + "}");
+  http.end();
 }
 
 void abrirCerradura() {
