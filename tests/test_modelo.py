@@ -4,8 +4,12 @@ import pytest
 from sqlalchemy.exc import SQLAlchemyError
 
 from test_security import DEVICE_HEADERS, client, login_as, reservation_state  # noqa: F401
-from app import (AccessLog, Dispositivo, Instalacion, Reserva, Tarjeta, User, app, db, evaluate_access,
-                 hash_device_token, hash_password, normalize_uid, validate_rfid)
+from app import app
+from control_acceso.access import evaluate_access
+from control_acceso.extensions import db
+from control_acceso.models import AccessLog, Dispositivo, Instalacion, Reserva, Tarjeta, User
+from control_acceso.security import hash_device_token
+from control_acceso.validators import normalize_uid, validate_rfid
 
 MIERCOLES = datetime(2026, 11, 4, 10, 0)
 
