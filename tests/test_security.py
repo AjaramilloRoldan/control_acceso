@@ -8,9 +8,11 @@ import pytest
 os.environ['SECRET_KEY'] = 'test-secret'
 os.environ['DATABASE_URL'] = f"sqlite:///{tempfile.mkdtemp()}/test.db"
 
-import app as app_module
-from app import (AccessLog, Dispositivo, Instalacion, Reserva, Tarjeta, User, app, db, hash_device_token,
-                 hash_password, verify_password)
+from app import app
+from control_acceso import config, database
+from control_acceso.extensions import db, limiter
+from control_acceso.models import AccessLog, Dispositivo, Instalacion, Reserva, Tarjeta, User
+from control_acceso.security import hash_device_token, hash_password, verify_password
 
 ADMIN_PASSWORD = 'clave-admin-segura'
 DEVICE_TOKEN = 'test-device-token'
@@ -47,9 +49,9 @@ class FakeConnection:
 @pytest.fixture
 def client(monkeypatch):
     app.config.update(TESTING=True, WTF_CSRF_ENABLED=False, RATELIMIT_ENABLED=False)
-    app_module.limiter.enabled = False
+    limiter.enabled = False
     admin_row = {'id': 1, 'username': 'admin', 'password': hash_password(ADMIN_PASSWORD)}
-    monkeypatch.setattr(app_module, 'get_db', lambda: FakeConnection(admin_row))
+    monkeypatch.setattr(database, 'get_db', lambda: FakeConnection(admin_row))
     with app.app_context():
         db.drop_all()
         db.create_all()
@@ -173,17 +175,17 @@ def test_availability_requires_session_and_valid_date(client):
 
 
 def test_login_limit_counts_only_login_attempts(client):
-    app_module.limiter.enabled = True
-    app_module.limiter.reset()
+    limiter.enabled = True
+    limiter.reset()
     try:
         assert all(client.get('/login').status_code == 200 for _ in range(8))
         statuses = [client.post('/login', data={'username': 'x', 'password': 'y'}).status_code for _ in range(6)]
     finally:
-        app_module.limiter.enabled = False
+        limiter.enabled = False
     assert statuses == [200] * 5 + [429]
 
 
 def test_app_refuses_to_start_without_required_secret(monkeypatch):
     monkeypatch.delenv('SECRET_KEY')
     with pytest.raises(RuntimeError):
-        app_module.require_env('SECRET_KEY')
+        config.require_env('SECRET_KEY')

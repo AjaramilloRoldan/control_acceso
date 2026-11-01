@@ -3,12 +3,14 @@ from datetime import datetime
 import pytest
 
 from test_security import DEVICE_HEADERS, client  # noqa: F401
-from app import AccessLog, app, calcular_disponibilidad, percentil_95
+from app import app
+from control_acceso.extensions import db
+from control_acceso.metrics import calcular_disponibilidad, percentil_95
+from control_acceso.models import AccessLog
 
 
 def stored_log(log_id):
     with app.app_context():
-        from app import db
         return db.session.get(AccessLog, log_id)
 
 
