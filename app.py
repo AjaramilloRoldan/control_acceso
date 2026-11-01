@@ -1,14 +1,16 @@
 from flask import Flask, render_template, request, redirect, session, url_for, jsonify, flash
 import mysql.connector
-import hmac
+import hashlib
 import math
 import os
+import re
 import time
 from datetime import datetime, timedelta, time as dt_time
 from urllib.parse import quote_plus
 from zoneinfo import ZoneInfo
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 import logging
@@ -34,7 +36,6 @@ if hasattr(time, 'tzset'):
 app = Flask(__name__)
 app.secret_key = require_env('SECRET_KEY')
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-DEVICE_TOKEN = require_env('DEVICE_TOKEN')
 
 # CSRF Protection
 csrf = CSRFProtect(app)
@@ -138,8 +139,12 @@ def verify_password(password, hashed_password):
 
 # --- AUTENTICACIÓN DE LECTORES ---
 
-def device_token_is_valid():
-    return hmac.compare_digest(request.headers.get('X-Device-Token', ''), DEVICE_TOKEN)
+def hash_device_token(token):
+    return hashlib.sha256(token.encode('utf-8')).hexdigest()
+
+def authenticated_device():
+    token_hash = hash_device_token(request.headers.get('X-Device-Token', ''))
+    return Dispositivo.query.filter_by(token_hash=token_hash, estado='activo').first()
 
 # --- MÉTRICAS ---
 
@@ -190,11 +195,36 @@ def validate_password(password):
         return False
     return True
 
+def normalize_uid(uid):
+    """Representa el UID en hexadecimal, en minúsculas y sin separadores"""
+    return re.sub(r'[\s:-]', '', uid).lower()
+
 def validate_rfid(rfid):
-    """Valida el formato del RFID"""
-    if not rfid or len(rfid) < 3 or len(rfid) > 50:
-        return False
-    return True
+    """Valida el formato del UID ya normalizado"""
+    return bool(re.fullmatch(r'[0-9a-f]{8,20}', rfid or ''))
+
+def validate_email(email):
+    return bool(re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+', email or '')) and len(email) <= 200
+
+def read_personal_data(form, required):
+    """Lee los datos personales del formulario; devuelve (datos, error)"""
+    datos = {
+        'apellido': form.get('apellido', '').strip(),
+        'identificacion': form.get('identificacion', '').strip(),
+        'email': form.get('email', '').strip().lower(),
+    }
+    rol = form.get('rol', 'estudiante')
+    if required and not all(datos.values()):
+        return None, 'Error: Apellido, identificación y correo son obligatorios'
+    if len(datos['apellido']) > 45:
+        return None, 'Error: Apellido inválido (máximo 45 caracteres)'
+    if datos['identificacion'] and not re.fullmatch(r'\d{6,10}', datos['identificacion']):
+        return None, 'Error: Identificación inválida (solo dígitos, entre 6 y 10)'
+    if datos['email'] and not validate_email(datos['email']):
+        return None, 'Error: Correo electrónico inválido'
+    if rol not in ROLES_USUARIO:
+        return None, 'Error: Rol inválido'
+    return {**{clave: valor or None for clave, valor in datos.items()}, 'rol': rol}, None
 
 def validate_name(name):
     """Valida el nombre del usuario"""
@@ -204,14 +234,51 @@ def validate_name(name):
 
 # --- MODELOS ---
 
+ROLES_USUARIO = ('estudiante', 'docente', 'administrativo')
+MARGEN_ACCESO_MINUTOS = 10
+
 class User(db.Model):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
-    rfid = db.Column(db.String(50), unique=True, nullable=False)
+    apellido = db.Column(db.String(45), nullable=True)
+    identificacion = db.Column(db.String(45), unique=True, nullable=True)
+    email = db.Column(db.String(200), unique=True, nullable=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
     password = db.Column(db.String(255), nullable=False)  # Aumentado para bcrypt
+    rol = db.Column(db.String(20), nullable=False, default='estudiante')
+    estado = db.Column(db.String(10), nullable=False, default='activo')
+    autorizacion_datos = db.Column(db.DateTime, nullable=True)
+    version_aviso = db.Column(db.String(10), nullable=True)
     reservas = db.relationship('Reserva', backref='usuario', lazy=True)
+    tarjetas = db.relationship('Tarjeta', backref='usuario', lazy=True)
+
+    @property
+    def tarjeta_activa(self):
+        return next((tarjeta for tarjeta in self.tarjetas if tarjeta.estado == 'activa'), None)
+
+    @property
+    def rfid(self):
+        return self.tarjeta_activa.uid if self.tarjeta_activa else ''
+
+class Tarjeta(db.Model):
+    __tablename__ = 'tarjetas'
+    id = db.Column(db.Integer, primary_key=True)
+    uid = db.Column(db.String(20), unique=True, nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    estado = db.Column(db.String(10), nullable=False, default='activa')
+    motivo_revocacion = db.Column(db.String(20), nullable=True)
+    fecha_asignacion = db.Column(db.DateTime, nullable=False, default=datetime.now)
+    fecha_revocacion = db.Column(db.DateTime, nullable=True)
+
+class Dispositivo(db.Model):
+    __tablename__ = 'dispositivos'
+    id = db.Column(db.Integer, primary_key=True)
+    instalacion_id = db.Column(db.Integer, db.ForeignKey('instalaciones.id'), nullable=False)
+    descripcion = db.Column(db.String(100), nullable=True)
+    token_hash = db.Column(db.String(64), unique=True, nullable=False)
+    estado = db.Column(db.String(10), nullable=False, default='activo')
+    ultima_conexion = db.Column(db.DateTime, nullable=True)
 
 class AccessLog(db.Model):
     __tablename__ = 'access_log'
@@ -219,8 +286,10 @@ class AccessLog(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     rfid_uid = db.Column(db.String(50), nullable=True)
     instalacion_id = db.Column(db.Integer, db.ForeignKey('instalaciones.id', ondelete='SET NULL'), nullable=True)
+    dispositivo_id = db.Column(db.Integer, db.ForeignKey('dispositivos.id', ondelete='SET NULL'), nullable=True)
     timestamp = db.Column(db.DateTime, default=datetime.now)
     success = db.Column(db.Boolean, default=True)
+    motivo = db.Column(db.String(45), nullable=True)
     tiempo_lectura_ms = db.Column(db.Integer, nullable=True)
     tiempo_reconexion_wifi = db.Column(db.Integer, nullable=True)
 
@@ -230,7 +299,15 @@ class Instalacion(db.Model):
     nombre = db.Column(db.String(100), nullable=False)
     descripcion = db.Column(db.Text, nullable=True)
     imagen = db.Column(db.String(255), nullable=True)
+    ubicacion = db.Column(db.String(45), nullable=True)
+    dotacion = db.Column(db.String(255), nullable=True)
+    estado = db.Column(db.String(20), nullable=False, default='activo')
+    roles_permitidos = db.Column(db.String(100), nullable=True)
     reservas = db.relationship('Reserva', backref='instalacion', lazy=True)
+
+    @property
+    def roles_autorizados(self):
+        return self.roles_permitidos.split(',') if self.roles_permitidos else ROLES_USUARIO
 
 class Reserva(db.Model):
     __tablename__ = 'reservas'
@@ -247,7 +324,7 @@ class Reserva(db.Model):
 @app.route('/admin_instalaciones')
 def admin_instalaciones():
     if session.get('role') != 'admin': return redirect(url_for('login'))
-    todas = Instalacion.query.all()
+    todas = Instalacion.query.filter(Instalacion.estado != 'baja').all()
     return render_template('admin_instalaciones.html', instalaciones=todas, admin_name=session.get('name'))
 
 @app.route('/crear_instalacion', methods=['POST'])
@@ -298,21 +375,22 @@ def eliminar_instalacion(id):
         return redirect(url_for('login'))
     
     inst = Instalacion.query.get_or_404(id)
-    
-    try:
-        # Borrar la imagen del servidor si existe
-        if inst.imagen:
-            path = os.path.join(app.config['UPLOAD_FOLDER'], inst.imagen)
-            if os.path.exists(path): 
-                os.remove(path)
-        
-        # Borrar de la base de datos
-        db.session.delete(inst)
-        db.session.commit()
 
-        # Lanzar el mensaje de éxito
+    try:
+        hoy = datetime.now(ZoneInfo('America/Bogota')).date()
+        reservas_futuras = Reserva.query.filter(
+            Reserva.instalacion_id == id,
+            Reserva.estado == 'activa',
+            Reserva.fecha_reserva >= hoy
+        ).count()
+        if reservas_futuras:
+            flash(f'La instalación tiene {reservas_futuras} reserva(s) activa(s)', 'error')
+            return redirect(url_for('admin_instalaciones'))
+
+        inst.estado = 'baja'
+        db.session.commit()
         flash('Instalación eliminada correctamente', 'success')
-        
+
     except Exception:
         db.session.rollback()
         app.logger.exception('Error al eliminar la instalación %s', id)
@@ -350,8 +428,8 @@ def login():
             return redirect(url_for('dashboard'))
 
         # User check con bcrypt
-        user = User.query.filter_by(username=username).first()
-        if user and verify_password(password, user.password):
+        user = User.query.filter((User.username == username) | (User.email == username)).first()
+        if user and user.estado == 'activo' and verify_password(password, user.password):
             session.clear()
             session['user_id'] = user.id
             session['name'] = user.name
@@ -378,7 +456,7 @@ def logout():
 def instalaciones():
     if 'user_id' not in session: return redirect(url_for('login'))
     
-    lista_inst = Instalacion.query.all()
+    lista_inst = Instalacion.query.filter_by(estado='activo').all()
     mis_reservas = Reserva.query.filter_by(user_id=session['user_id'], estado='activa').all()
     
     ahora = datetime.now()
@@ -403,6 +481,10 @@ def reservar():
     if session.get('role') != 'user': return redirect(url_for('login'))
     
     inst_id = request.form.get('instalacion_id')
+    instalacion = db.session.get(Instalacion, inst_id)
+    if instalacion is None or instalacion.estado != 'activo':
+        return "Error: Instalación no disponible", 400
+
     fecha = datetime.strptime(request.form.get('fecha'), '%Y-%m-%d').date()
     inicio = datetime.strptime(request.form.get('hora_inicio'), '%H:%M').time()
     fin = datetime.strptime(request.form.get('hora_fin'), '%H:%M').time()
@@ -550,10 +632,20 @@ def get_denegados():
 
 # --- GESTIÓN DE USUARIOS (CRUD) ---
 
+def replace_active_card(usuario, uid):
+    actual = usuario.tarjeta_activa
+    if actual and actual.uid == uid:
+        return
+    if actual:
+        actual.estado = 'revocada'
+        actual.motivo_revocacion = 'reemplazo'
+        actual.fecha_revocacion = datetime.now()
+    usuario.tarjetas.append(Tarjeta(uid=uid))
+
 @app.route('/usuarios')
 def usuarios():
     if session.get('role') != 'admin': return redirect(url_for('login'))
-    usuarios_lista = User.query.all()
+    usuarios_lista = User.query.filter_by(estado='activo').all()
     return render_template('usuarios.html', usuarios=usuarios_lista)
 
 @app.route('/agregar_usuario', methods=['GET', 'POST'])
@@ -566,12 +658,17 @@ def agregar_usuario():
         return render_template('agregar_usuario.html', rfid_pre=rfid_pre)
 
     name = request.form.get('name')
-    rfid = request.form.get('rfid')
+    rfid = normalize_uid(request.form.get('rfid', ''))
     username = request.form.get('username')
     password = request.form.get('password')
     client_ip = request.remote_addr
 
     # VALIDACIÓN
+    datos_personales, error = read_personal_data(request.form, required=True)
+    if error:
+        flash(error, 'error')
+        return redirect(url_for('usuarios'))
+
     if not all([name, rfid, username, password]):
         flash('Error: Todos los campos son obligatorios', 'error')
         return redirect(url_for('usuarios'))
@@ -581,7 +678,7 @@ def agregar_usuario():
         return redirect(url_for('usuarios'))
     
     if not validate_rfid(rfid):
-        flash('Error: RFID inválido (mínimo 3 caracteres, máximo 50)', 'error')
+        flash('Error: RFID inválido (hexadecimal, de 8 a 20 caracteres)', 'error')
         return redirect(url_for('usuarios'))
     
     if not validate_username(username):
@@ -594,14 +691,15 @@ def agregar_usuario():
     
     try:
         hashed_password = hash_password(password)
-        nuevo = User(name=name, rfid=rfid, username=username, password=hashed_password)
+        nuevo = User(name=name, username=username, password=hashed_password, **datos_personales)
+        nuevo.tarjetas.append(Tarjeta(uid=rfid))
         db.session.add(nuevo)
         db.session.commit()
         log_security_event('USER_CREATED', user_id=nuevo.id, details=f'Username: {username}', ip=client_ip)
         flash('Usuario registrado con éxito', 'success')
-    except:
+    except IntegrityError:
         db.session.rollback()
-        flash('Error al registrar: El UID o Usuario ya existen', 'error')
+        flash('Error al registrar: El UID, usuario, correo o identificación ya existen', 'error')
         
     return redirect(url_for('usuarios'))
 
@@ -613,17 +711,22 @@ def editar_usuario(id):
     
     if request.method == 'POST':
         name = request.form.get('name')
-        rfid = request.form.get('rfid')
+        rfid = normalize_uid(request.form.get('rfid', ''))
         username = request.form.get('username')
         password = request.form.get('password')
-        
+
         # VALIDACIÓN
+        datos_personales, error = read_personal_data(request.form, required=False)
+        if error:
+            flash(error, 'error')
+            return redirect(url_for('editar_usuario', id=id))
+
         if not validate_name(name):
             flash('Error: Nombre inválido (mínimo 2 caracteres, máximo 100)', 'error')
             return redirect(url_for('editar_usuario', id=id))
         
         if not validate_rfid(rfid):
-            flash('Error: RFID inválido (mínimo 3 caracteres, máximo 50)', 'error')
+            flash('Error: RFID inválido (hexadecimal, de 8 a 20 caracteres)', 'error')
             return redirect(url_for('editar_usuario', id=id))
         
         if not validate_username(username):
@@ -635,8 +738,10 @@ def editar_usuario(id):
             return redirect(url_for('editar_usuario', id=id))
         
         usuario.name = name
-        usuario.rfid = rfid
         usuario.username = username
+        for campo, valor in datos_personales.items():
+            setattr(usuario, campo, valor)
+        replace_active_card(usuario, rfid)
         if password:
             usuario.password = hash_password(password)
             
@@ -645,9 +750,9 @@ def editar_usuario(id):
             log_security_event('USER_UPDATED', user_id=id, details=f'Username: {usuario.username}', ip=client_ip)
             flash('Cambio aplicado correctamente', 'success') 
             return redirect(url_for('usuarios')) 
-        except:
+        except IntegrityError:
             db.session.rollback()
-            flash('Error: El RFID o Usuario ya existen', 'error')
+            flash('Error: El RFID, usuario, correo o identificación ya existen', 'error')
             return redirect(url_for('editar_usuario', id=id))
             
     return render_template('editar_usuario.html', usuario=usuario)
@@ -660,75 +765,97 @@ def eliminar_usuario(id):
     usuario_objeto = User.query.get_or_404(id) 
     
     try:
-        AccessLog.query.filter_by(user_id=id).delete()
-        
-        db.session.delete(usuario_objeto)
+        hoy = datetime.now(ZoneInfo('America/Bogota')).date()
+        usuario_objeto.estado = 'inactivo'
+        Reserva.query.filter(
+            Reserva.user_id == id,
+            Reserva.estado == 'activa',
+            Reserva.fecha_reserva >= hoy
+        ).update({'estado': 'cancelada'})
         db.session.commit()
-        log_security_event('USER_DELETED', user_id=id, ip=request.remote_addr)
-        flash('Usuario eliminado exitosamente', 'success') 
+        log_security_event('USER_DEACTIVATED', user_id=id, ip=request.remote_addr)
+        flash('Usuario desactivado exitosamente', 'success')
     except Exception:
         db.session.rollback()
-        app.logger.exception('Error al eliminar el usuario %s', id)
-        flash('Error al eliminar el usuario', 'error') 
+        app.logger.exception('Error al desactivar el usuario %s', id)
+        flash('Error al desactivar el usuario', 'error') 
         
     return redirect(url_for('usuarios'))
 
 # --- LÓGICA DE CONTROL DE ACCESO (RFID) ---
 
-def registrar_acceso(user_id, uid, instalacion_id, autorizado, tiempo_reconexion_wifi, momento):
-    registro = AccessLog(user_id=user_id, rfid_uid=uid, instalacion_id=instalacion_id, success=autorizado,
-                         tiempo_reconexion_wifi=tiempo_reconexion_wifi, timestamp=momento)
-    db.session.add(registro)
-    db.session.commit()
-    return registro.id
+def evaluate_access(uid, instalacion, ahora):
+    """Aplica las condiciones de autorización en orden; devuelve (usuario, motivo de denegación)"""
+    tarjeta = Tarjeta.query.filter_by(uid=uid).first()
+    if tarjeta is None:
+        return None, 'TARJETA_NO_REGISTRADA'
+
+    user = tarjeta.usuario
+    if tarjeta.estado != 'activa':
+        return user, 'TARJETA_REVOCADA'
+    if user.estado != 'activo':
+        return user, 'USUARIO_INACTIVO'
+    if instalacion.estado != 'activo':
+        return user, 'ESPACIO_NO_OPERATIVO'
+    if user.rol not in instalacion.roles_autorizados:
+        return user, 'ROL_NO_AUTORIZADO'
+
+    fin_del_dia = ahora.replace(hour=23, minute=59, second=59)
+    apertura = min(ahora + timedelta(minutes=MARGEN_ACCESO_MINUTOS), fin_del_dia).time()
+    reserva = Reserva.query.filter(
+        Reserva.user_id == user.id,
+        Reserva.instalacion_id == instalacion.id,
+        Reserva.fecha_reserva == ahora.date(),
+        Reserva.hora_inicio <= apertura,
+        Reserva.hora_fin > ahora.time(),
+        Reserva.estado == 'activa'
+    ).first()
+    return user, None if reserva else 'SIN_RESERVA_VIGENTE'
 
 @app.route('/historial', methods=['GET', 'POST'])
 @csrf.exempt
 @limiter.exempt
 def historial():
     if request.method == 'POST':
-        if not device_token_is_valid():
-            log_security_event('DEVICE_AUTH_FAILED', ip=request.remote_addr)
+        dispositivo = authenticated_device()
+        if dispositivo is None:
+            log_security_event('DISPOSITIVO_NO_AUTENTICADO', ip=request.remote_addr)
             return jsonify({"message": "Dispositivo no autorizado", "access": False}), 401
 
         data = request.get_json(silent=True) or {}
-        uid = data.get('uid')
-        if not isinstance(uid, str) or not validate_rfid(uid):
-            return jsonify({"message": "UID inválido", "access": False}), 400
+        if data.get('instalacion_id') != dispositivo.instalacion_id:
+            log_security_event('DEVICE_INSTALLATION_MISMATCH', details=f'Dispositivo: {dispositivo.id}', ip=request.remote_addr)
+            return jsonify({"message": "Instalación no asociada al dispositivo", "access": False}), 403
 
-        inst_id = data.get('instalacion_id')
-        if not isinstance(inst_id, int) or db.session.get(Instalacion, inst_id) is None:
-            return jsonify({"message": "Instalación inválida", "access": False}), 400
+        uid = data.get('uid')
+        uid = normalize_uid(uid) if isinstance(uid, str) else ''
+        if not validate_rfid(uid):
+            return jsonify({"message": "UID inválido", "access": False}), 400
 
         tiempo_reconexion_wifi = data.get('tiempo_reconexion_wifi')
         if not isinstance(tiempo_reconexion_wifi, int) or tiempo_reconexion_wifi < 0:
             tiempo_reconexion_wifi = None
 
-        user = User.query.filter_by(rfid=uid).first()
-
         # --- LÓGICA DE TIEMPO AJUSTADA PARA COMPATIBILIDAD CON WINDOWS (COLOMBIA) ---
-        zona_co = ZoneInfo('America/Bogota')
-        ahora = datetime.now(zona_co).replace(tzinfo=None)
-        hora_actual = ahora.time()
-        fecha_actual = ahora.date()
+        ahora = datetime.now(ZoneInfo('America/Bogota')).replace(tzinfo=None)
 
-        if not user:
-            log_id = registrar_acceso(None, uid, inst_id, False, tiempo_reconexion_wifi, ahora)
-            return jsonify({"message": "Acceso denegado: Usuario no registrado", "access": False, "log_id": log_id}), 403
+        try:
+            instalacion = db.session.get(Instalacion, dispositivo.instalacion_id)
+            user, motivo = evaluate_access(uid, instalacion, ahora)
+            registro = AccessLog(user_id=user.id if user else None, rfid_uid=uid, instalacion_id=instalacion.id,
+                                 dispositivo_id=dispositivo.id, success=motivo is None, motivo=motivo,
+                                 tiempo_reconexion_wifi=tiempo_reconexion_wifi, timestamp=ahora)
+            db.session.add(registro)
+            dispositivo.ultima_conexion = ahora
+            db.session.commit()
+        except SQLAlchemyError:
+            db.session.rollback()
+            app.logger.exception('Error al registrar el acceso del UID %s', uid)
+            return jsonify({"message": "Acceso denegado", "access": False, "motivo": "ERROR_REGISTRO"}), 500
 
-        reserva = Reserva.query.filter(
-            Reserva.user_id == user.id,
-            Reserva.instalacion_id == inst_id,
-            Reserva.fecha_reserva == fecha_actual,
-            Reserva.hora_inicio <= hora_actual,
-            Reserva.hora_fin >= hora_actual,
-            Reserva.estado == 'activa'
-        ).first()
-
-        log_id = registrar_acceso(user.id, uid, inst_id, reserva is not None, tiempo_reconexion_wifi, ahora)
-        if reserva:
-            return jsonify({"message": f"Acceso autorizado: {user.name}", "access": True, "log_id": log_id}), 200
-        return jsonify({"message": "Sin reserva activa", "access": False, "log_id": log_id}), 401
+        if motivo is None:
+            return jsonify({"message": f"Acceso autorizado: {user.name}", "access": True, "motivo": None, "log_id": registro.id}), 200
+        return jsonify({"message": "Acceso denegado", "access": False, "motivo": motivo, "log_id": registro.id}), 403
 
     if session.get('role') != 'admin': return redirect(url_for('login'))
 
@@ -748,8 +875,9 @@ def historial():
 @csrf.exempt
 @limiter.exempt
 def registrar_metricas_acceso():
-    if not device_token_is_valid():
-        log_security_event('DEVICE_AUTH_FAILED', ip=request.remote_addr)
+    dispositivo = authenticated_device()
+    if dispositivo is None:
+        log_security_event('DISPOSITIVO_NO_AUTENTICADO', ip=request.remote_addr)
         return jsonify({"error": "Dispositivo no autorizado"}), 401
 
     data = request.get_json(silent=True) or {}
@@ -760,7 +888,7 @@ def registrar_metricas_acceso():
         return jsonify({"error": "Métrica inválida"}), 400
 
     registro = db.session.get(AccessLog, log_id)
-    if registro is None:
+    if registro is None or registro.dispositivo_id != dispositivo.id:
         return jsonify({"error": "Registro no encontrado"}), 404
     if registro.tiempo_lectura_ms is None:
         registro.tiempo_lectura_ms = tiempo_lectura

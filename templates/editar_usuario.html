@@ -74,6 +74,26 @@
                             placeholder="Nombre y Apellido">
                     </div>
                     
+                    <div>
+                        <label for="apellido" class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 ml-1">Apellido</label>
+                        <input type="text" id="apellido" name="apellido" maxlength="45"  value="{{ usuario.apellido or '' }}" class="w-full px-6 py-4 input-glass rounded-2xl text-white focus:outline-none">
+                    </div>
+                    <div>
+                        <label for="identificacion" class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 ml-1">Identificación</label>
+                        <input type="text" id="identificacion" name="identificacion" inputmode="numeric" pattern="[0-9]{6,10}"  value="{{ usuario.identificacion or '' }}" class="w-full px-6 py-4 input-glass rounded-2xl text-white focus:outline-none">
+                    </div>
+                    <div>
+                        <label for="email" class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 ml-1">Correo electrónico</label>
+                        <input type="email" id="email" name="email" maxlength="200"  value="{{ usuario.email or '' }}" class="w-full px-6 py-4 input-glass rounded-2xl text-white focus:outline-none">
+                    </div>
+                    <div>
+                        <label for="rol" class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 ml-1">Rol</label>
+                        <select id="rol" name="rol" class="w-full px-6 py-4 input-glass rounded-2xl text-white focus:outline-none">
+                            <option value="estudiante"{{ ' selected' if usuario.rol == 'estudiante' }}>Estudiante</option>
+                            <option value="docente"{{ ' selected' if usuario.rol == 'docente' }}>Docente</option>
+                            <option value="administrativo"{{ ' selected' if usuario.rol == 'administrativo' }}>Administrativo</option>
+                        </select>
+                    </div>
                     <div class="group">
                         <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 ml-1 group-focus-within:text-emerald-400 transition-colors">Código RFID (Lectura)</label>
                         <div class="relative">
