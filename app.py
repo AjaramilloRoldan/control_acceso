@@ -1,8 +1,10 @@
 from flask import Flask, render_template, request, redirect, session, url_for, jsonify, flash
 import mysql.connector
+import hmac
 import os
 import time
 from datetime import datetime, timedelta, time as dt_time
+from urllib.parse import quote_plus
 from zoneinfo import ZoneInfo
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import func
@@ -17,13 +19,21 @@ from flask_limiter.util import get_remote_address
 
 load_dotenv()
 
+def require_env(name):
+    value = os.getenv(name)
+    if not value:
+        raise RuntimeError(f'Falta la variable de entorno obligatoria {name}. Revisa .env.example')
+    return value
+
 # Configuración de Zona Horaria para Colombia
 os.environ['TZ'] = 'America/Bogota'
 if hasattr(time, 'tzset'):
     time.tzset()
 
 app = Flask(__name__)
-app.secret_key = os.getenv('SECRET_KEY', 'clave_secreta_default_cambiar_en_produccion')
+app.secret_key = require_env('SECRET_KEY')
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+DEVICE_TOKEN = require_env('DEVICE_TOKEN')
 
 # CSRF Protection
 csrf = CSRFProtect(app)
@@ -61,16 +71,17 @@ def get_db():
     return mysql.connector.connect(
         host=os.getenv('DB_HOST', 'localhost'),
         user=os.getenv('DB_USER', 'root'),
-        password=os.getenv('DB_PASSWORD', 'Roldan.1982'),
+        password=require_env('DB_PASSWORD'),
         database=os.getenv('DB_NAME', 'control_acceso')
     )
 
 # Configuración SQLAlchemy
 db_host = os.getenv('DB_HOST', 'localhost')
 db_user = os.getenv('DB_USER', 'root')
-db_password = os.getenv('DB_PASSWORD', 'Roldan.1982')
 db_name = os.getenv('DB_NAME', 'control_acceso')
-app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+mysqlconnector://{db_user}:{db_password}@{db_host}:3306/{db_name}'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL') or (
+    f"mysql+mysqlconnector://{db_user}:{quote_plus(require_env('DB_PASSWORD'))}@{db_host}:3306/{db_name}"
+)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
@@ -120,9 +131,9 @@ def verify_password(password, hashed_password):
     """Verifica una contraseña contra su hash"""
     try:
         return bcrypt.checkpw(password.encode('utf-8'), hashed_password.encode('utf-8'))
-    except:
-        # Si el hash no está en formato bcrypt, verificar como texto plano (para migración)
-        return password == hashed_password
+    except ValueError:
+        log_security_event('INVALID_PASSWORD_HASH', details='Ejecutar migrate_passwords.py')
+        return False
 
 # --- VALIDACIÓN DE INPUTS ---
 
@@ -240,7 +251,7 @@ def editar_instalacion(id):
     flash('Instalación actualizada', 'success')
     return redirect(url_for('admin_instalaciones'))
 
-@app.route('/eliminar_instalacion/<int:id>')
+@app.route('/eliminar_instalacion/<int:id>', methods=['POST'])
 def eliminar_instalacion(id):
     if session.get('role') != 'admin': 
         return redirect(url_for('login'))
@@ -261,27 +272,11 @@ def eliminar_instalacion(id):
         # Lanzar el mensaje de éxito
         flash('Instalación eliminada correctamente', 'success')
         
-    except Exception as e:
+    except Exception:
         db.session.rollback()
-        flash(f'Error al eliminar: {str(e)}', 'error')
+        app.logger.exception('Error al eliminar la instalación %s', id)
+        flash('Error al eliminar la instalación', 'error')
 
-    return redirect(url_for('admin_instalaciones'))
-    if session.get('role') != 'admin': return redirect(url_for('login'))
-    inst = Instalacion.query.get_or_404(id)
-    if inst.imagen:
-        path = os.path.join(app.config['UPLOAD_FOLDER'], inst.imagen)
-        if os.path.exists(path): os.remove(path)
-    db.session.delete(inst)
-    db.session.commit()
-    return redirect(url_for('admin_instalaciones'))
-    if session.get('role') != 'admin': return redirect(url_for('login'))
-    inst = Instalacion.query.get_or_404(id)
-    if inst.imagen:
-        path = os.path.join(app.config['UPLOAD_FOLDER'], inst.imagen)
-        if os.path.exists(path): os.remove(path)
-    db.session.delete(inst)
-    db.session.commit()
-    flash('Instalación eliminada', 'success')
     return redirect(url_for('admin_instalaciones'))
 
 # --- RUTAS DE NAVEGACIÓN BÁSICA ---
@@ -301,10 +296,9 @@ def login():
         conn = get_db()
         cursor = conn.cursor(dictionary=True)
         
-        # Admin check (mantener compatibilidad temporal, luego migrar a bcrypt)
-        cursor.execute("SELECT * FROM admin WHERE username = %s AND password = %s", (username, password))
+        cursor.execute("SELECT * FROM admin WHERE username = %s", (username,))
         admin = cursor.fetchone()
-        if admin:
+        if admin and verify_password(password, admin['password']):
             session.clear()
             session['user_id'] = admin['id']
             session['name'] = "Administrador"
@@ -388,12 +382,14 @@ def reservar():
     db.session.commit()
     return redirect(url_for('instalaciones'))
 
-@app.route('/cancelar_reserva/<int:reserva_id>')
+@app.route('/cancelar_reserva/<int:reserva_id>', methods=['POST'])
 def cancelar_reserva(reserva_id):
     reserva = Reserva.query.get_or_404(reserva_id)
-    if session.get('user_id') == reserva.user_id or session.get('role') == 'admin':
-        reserva.estado = 'cancelada'
-        db.session.commit()
+    es_titular = session.get('role') == 'user' and session.get('user_id') == reserva.user_id
+    if not es_titular and session.get('role') != 'admin':
+        return jsonify({"error": "No autorizado"}), 403
+    reserva.estado = 'cancelada'
+    db.session.commit()
     return redirect(url_for('instalaciones'))
 
 # --- PANEL ADMINISTRATIVO Y ESTADÍSTICAS ---
@@ -613,8 +609,9 @@ def editar_usuario(id):
 
 # --- Eliminar Usuario ---
 
-@app.route('/eliminar_usuario/<int:id>', methods=['GET', 'POST'])
+@app.route('/eliminar_usuario/<int:id>', methods=['POST'])
 def eliminar_usuario(id):
+    if session.get('role') != 'admin': return redirect(url_for('login'))
     usuario_objeto = User.query.get_or_404(id) 
     
     try:
@@ -622,10 +619,12 @@ def eliminar_usuario(id):
         
         db.session.delete(usuario_objeto)
         db.session.commit()
+        log_security_event('USER_DELETED', user_id=id, ip=request.remote_addr)
         flash('Usuario eliminado exitosamente', 'success') 
-    except Exception as e:
+    except Exception:
         db.session.rollback()
-        flash(f'Error al eliminar: {str(e)}', 'error') 
+        app.logger.exception('Error al eliminar el usuario %s', id)
+        flash('Error al eliminar el usuario', 'error') 
         
     return redirect(url_for('usuarios'))
 
@@ -635,8 +634,15 @@ def eliminar_usuario(id):
 @csrf.exempt
 def historial():
     if request.method == 'POST':
-        data = request.get_json()
+        if not hmac.compare_digest(request.headers.get('X-Device-Token', ''), DEVICE_TOKEN):
+            log_security_event('DEVICE_AUTH_FAILED', ip=request.remote_addr)
+            return jsonify({"message": "Dispositivo no autorizado", "access": False}), 401
+
+        data = request.get_json(silent=True) or {}
         uid = data.get('uid')
+        if not isinstance(uid, str) or not validate_rfid(uid):
+            return jsonify({"message": "UID inválido", "access": False}), 400
+
         inst_id = data.get('instalacion_id', 1)
         tiempo_lectura = data.get('tiempo_lectura')
         tiempo_reconexion_wifi = data.get('tiempo_reconexion_wifi')
@@ -694,7 +700,12 @@ def historial():
 
 @app.route('/api/disponibilidad/<int:inst_id>/<fecha>')
 def consultar_disponibilidad(inst_id, fecha):
-    reservas = Reserva.query.filter_by(instalacion_id=inst_id, fecha_reserva=fecha, estado='activa').all()
+    if 'user_id' not in session: return jsonify({"error": "Unauthorized"}), 401
+    try:
+        fecha_consulta = datetime.strptime(fecha, '%Y-%m-%d').date()
+    except ValueError:
+        return jsonify({"error": "Fecha inválida"}), 400
+    reservas = Reserva.query.filter_by(instalacion_id=inst_id, fecha_reserva=fecha_consulta, estado='activa').all()
     ocupados = [{"from": r.hora_inicio.strftime('%H:%M'), "to": r.hora_fin.strftime('%H:%M')} for r in reservas]
     return jsonify(ocupados)
 

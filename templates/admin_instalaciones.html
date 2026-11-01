@@ -178,9 +178,12 @@
                 <button onclick="closeDeleteModal()" class="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-bold py-4 rounded-2xl transition-all">
                     Cancelar
                 </button>
-                <a id="confirmDeleteBtn" href="#" class="flex-1 bg-red-500 hover:bg-red-400 text-white font-bold py-4 rounded-2xl transition-all shadow-lg shadow-red-500/20 flex items-center justify-center text-center">
-                    Eliminar
-                </a>
+                <form id="confirmDeleteForm" method="POST" class="flex-1">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <button type="submit" class="w-full bg-red-500 hover:bg-red-400 text-white font-bold py-4 rounded-2xl transition-all shadow-lg shadow-red-500/20 flex items-center justify-center text-center">
+                        Eliminar
+                    </button>
+                </form>
             </div>
         </div>
     </div>
@@ -265,8 +268,7 @@
         // Lógica del Modal de Eliminación
         function openDeleteModal(url) {
             const deleteModal = document.getElementById('deleteConfirmModal');
-            const confirmBtn = document.getElementById('confirmDeleteBtn');
-            confirmBtn.href = url;
+            document.getElementById('confirmDeleteForm').action = url;
             deleteModal.classList.remove('hidden');
             deleteModal.classList.add('flex');
         }

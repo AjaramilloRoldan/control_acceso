@@ -6,3 +6,4 @@ bcrypt==4.1.2
 flask-wtf==1.2.1
 flask-limiter==3.5.0
 Werkzeug==3.0.1
+tzdata==2025.2

@@ -4,6 +4,7 @@
 #include <SPI.h>
 #include <MFRC522.h>
 #include <HTTPClient.h>
+#include "secrets.h"
 
 // --- Pines RFID ---
 #define SS_PIN 5       // SDA/NSS del RC522
@@ -22,13 +23,6 @@ LiquidCrystal_PCF8574 lcd(LCD_ADDR);
 
 // --- RFID ---
 MFRC522 mfrc522(SS_PIN, RST_PIN);
-
-// --- WiFi ---
-const char* ssid = "vivo Y51";
-const char* password = "Nicolas13";
-
-// --- Servidor Flask ---
-const char* serverURL = "http://10.15.124.7:5000/historial";
 
 // --- ID de Instalación ---
 // Configurar según la ubicación física del lector RFID:
@@ -64,9 +58,9 @@ void setup() {
 
   // --- Conectar WiFi ---
   Serial.print("Conectando a WiFi: ");
-  Serial.println(ssid);
+  Serial.println(WIFI_SSID);
   WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, password);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
   int intentos = 0;
   while (WiFi.status() != WL_CONNECTED && intentos < 30) {
@@ -142,8 +136,9 @@ void loop() {
     unsigned long inicioLectura = millis();
     
     HTTPClient http;
-    http.begin(serverURL);
+    http.begin(SERVER_URL);
     http.addHeader("Content-Type", "application/json");
+    http.addHeader("X-Device-Token", DEVICE_TOKEN);
 
     String payload = "{\"uid\":\"" + uid + "\",\"instalacion_id\":" + String(INSTALACION_ID) + ",\"tiempo_lectura\":" + String(tiempoLectura) + ",\"tiempo_reconexion_wifi\":" + String(tiempoReconexionWiFi) + "}";
     int httpResponseCode = http.POST(payload);
