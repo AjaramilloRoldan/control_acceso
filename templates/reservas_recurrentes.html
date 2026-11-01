@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Programación - Control Acceso</title>
+    <link rel="icon" href="/static/pestana.png" />
+    <script src="https://cdn.jsdelivr.net/npm/tailwindcss-cdn@3.4.10/tailwindcss.js"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        font-family: "Plus Jakarta Sans", sans-serif;
+      }
+      .campo {
+        margin-top: 0.5rem;
+        width: 100%;
+        padding: 0.75rem 1rem;
+        background: #0f172a;
+        border: 1px solid #334155;
+        border-radius: 0.75rem;
+        color: #fff;
+      }
+    </style>
+  </head>
+  <body class="bg-slate-950 text-slate-200 min-h-screen">
+    <header
+      class="border-b border-white/5 px-6 py-6 flex items-center justify-between gap-4"
+    >
+      <h1 class="text-2xl font-bold text-white tracking-tight">
+        Programación de Reservas Recurrentes
+      </h1>
+      <a
+        href="/dashboard"
+        class="px-6 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-sm font-bold text-emerald-400"
+        >Volver al panel</a
+      >
+    </header>
+
+    <main class="max-w-5xl mx-auto p-6 md:p-10">
+      {% if error %}
+      <p
+        class="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400"
+      >
+        {{ error }}
+      </p>
+      {% endif %} {% for mensaje in get_flashed_messages() %}
+      <p
+        class="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-sm text-emerald-400"
+      >
+        {{ mensaje }}
+      </p>
+      {% endfor %}
+
+      <form
+        method="post"
+        enctype="multipart/form-data"
+        class="grid grid-cols-1 md:grid-cols-2 gap-5 bg-slate-900/40 border border-white/5 rounded-2xl p-6 mb-10"
+      >
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <label class="text-xs font-bold text-slate-400"
+          >Tipo
+          <select name="tipo" class="campo">
+            {% for valor, etiqueta in tipos.items() %}
+            <option value="{{ valor }}">{{ etiqueta }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="text-xs font-bold text-slate-400"
+          >Usuario (docente o administrativo)
+          <select name="id_usuario" class="campo">
+            <option value="">Selecciona</option>
+            {% for usuario in usuarios %}
+            <option value="{{ usuario.id }}">
+              {{ usuario.name }} {{ usuario.apellido or '' }} ({{ usuario.rol
+              }})
+            </option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="text-xs font-bold text-slate-400 md:col-span-2"
+          >Espacios (uno para carga académica; uno o más para franjas
+          operativas)
+          <select name="id_espacios" multiple size="4" class="campo">
+            {% for instalacion in instalaciones %}
+            <option value="{{ instalacion.id }}">
+              {{ instalacion.nombre }}
+            </option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="text-xs font-bold text-slate-400"
+          >Día de la semana
+          <select name="dia_semana" class="campo">
+            {% for valor, nombre in [(1, 'Lunes'), (2, 'Martes'), (3,
+            'Miércoles'), (4, 'Jueves'), (5, 'Viernes'), (6, 'Sábado')] %}
+            <option value="{{ valor }}">{{ nombre }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <div class="grid grid-cols-2 gap-4">
+          <label class="text-xs font-bold text-slate-400"
+            >Hora de inicio
+            <input type="time" name="hora_inicio" class="campo" />
+          </label>
+          <label class="text-xs font-bold text-slate-400"
+            >Hora de fin
+            <input type="time" name="hora_fin" class="campo" />
+          </label>
+        </div>
+        <label class="text-xs font-bold text-slate-400"
+          >Fecha inicial
+          <input type="date" name="fecha_inicial" class="campo" />
+        </label>
+        <label class="text-xs font-bold text-slate-400"
+          >Fecha final
+          <input type="date" name="fecha_final" class="campo" />
+        </label>
+        <label class="text-xs font-bold text-slate-400 md:col-span-2"
+          >O un archivo CSV (id_usuario, id_espacios, dia_semana, hora_inicio,
+          hora_fin, fecha_inicial, fecha_final)
+          <input type="file" name="archivo" accept=".csv" class="campo" />
+        </label>
+        <button
+          type="submit"
+          class="md:col-span-2 px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl"
+        >
+          Programar
+        </button>
+      </form>
+
+      <h2 class="text-xl font-bold text-white mb-4">Series programadas</h2>
+      <div
+        class="overflow-x-auto bg-slate-900/40 border border-white/5 rounded-2xl"
+      >
+        <table class="w-full text-sm text-left">
+          <thead class="text-xs uppercase tracking-widest text-slate-500">
+            <tr>
+              <th class="p-4">Tipo</th>
+              <th class="p-4">Usuario</th>
+              <th class="p-4">Espacio</th>
+              <th class="p-4">Franja</th>
+              <th class="p-4">Periodo</th>
+              <th class="p-4">Ocurrencias</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for serie in series %}
+            <tr class="border-t border-white/5">
+              <td class="p-4">{{ tipos[serie.tipo] }}</td>
+              <td class="p-4 text-white font-semibold">{{ serie.usuario }}</td>
+              <td class="p-4">{{ serie.espacio }}</td>
+              <td class="p-4">
+                {{ serie.hora_inicio.strftime('%H:%M') }} — {{
+                serie.hora_fin.strftime('%H:%M') }}
+              </td>
+              <td class="p-4">{{ serie.desde }} a {{ serie.hasta }}</td>
+              <td class="p-4">{{ serie.ocurrencias }}</td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="6" class="p-8 text-center text-slate-500">
+                Aún no hay series programadas.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </body>
+</html>

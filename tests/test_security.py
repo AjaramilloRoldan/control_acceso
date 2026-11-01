@@ -134,9 +134,14 @@ def test_cancel_reservation_rejects_get_and_other_users(client):
 
 
 def test_owner_can_cancel_reservation(client):
+    with app.app_context():
+        manana = (datetime.now(ZoneInfo('America/Bogota')) + timedelta(days=1)).date()
+        db.session.add(Reserva(id=2, user_id=10, instalacion_id=1, fecha_reserva=manana,
+                               hora_inicio=time(10, 0), hora_fin=time(11, 0)))
+        db.session.commit()
     login_as(client, 'user', 10)
-    client.post('/cancelar_reserva/1')
-    assert reservation_state(1) == 'cancelada'
+    client.post('/cancelar_reserva/2')
+    assert reservation_state(2) == 'cancelada'
 
 
 @pytest.mark.parametrize('headers', [{}, {'X-Device-Token': 'incorrecto'}])
