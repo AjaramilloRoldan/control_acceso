@@ -5,30 +5,36 @@ Sistema de control de acceso para instalaciones privadas con medidas de segurida
 ## Características de Seguridad
 
 ### 1. Encriptación de Contraseñas (bcrypt)
+
 - Todas las contraseñas se almacenan hasheadas con bcrypt
 - Longitud de columna aumentada a 255 caracteres para hashes bcrypt
 - Funciones de hash y verificación implementadas
 
 ### 2. Variables de Entorno
+
 - Credenciales sensibles almacenadas en variables de entorno
 - Archivo `.env.example` como plantilla de configuración
 - `.env` incluido en `.gitignore` para proteger secretos
 
 ### 3. Protección CSRF
+
 - Tokens CSRF en todos los formularios
 - Flask-WTF configurado para protección automática
 
 ### 4. Rate Limiting
+
 - Límite de 5 intentos de login cada 15 minutos por IP
 - Límites globales: 200 por día, 50 por hora
 - Protección contra ataques de fuerza bruta
 
 ### 5. Logging de Seguridad
+
 - Logs de eventos de seguridad en `logs/security.log`
 - Rotación automática de logs (1MB máximo, 5 backups)
 - Eventos registrados: login exitoso/fallido, creación/actualización de usuarios
 
 ### 6. Headers de Seguridad HTTP
+
 - X-Content-Type-Options: nosniff
 - X-Frame-Options: DENY
 - X-XSS-Protection: 1; mode=block
@@ -36,11 +42,13 @@ Sistema de control de acceso para instalaciones privadas con medidas de segurida
 - Content-Security-Policy configurado
 
 ### 7. Configuración de Producción
+
 - Debug mode deshabilitado por defecto
 - Configuración separada para desarrollo y producción
 - Controlado por variable de entorno `FLASK_DEBUG`
 
 ### 8. Validación de Inputs
+
 - Validación de username (3-50 caracteres, alfanuméricos y guiones bajos)
 - Validación de contraseña (mínimo 6 caracteres)
 - Validación de nombre (2-100 caracteres)
@@ -49,17 +57,21 @@ Sistema de control de acceso para instalaciones privadas con medidas de segurida
 ## Instalación
 
 ### 1. Instalar Dependencias
+
 ```bash
 pip install -r requirements.txt
 ```
 
 ### 2. Configurar Variables de Entorno
+
 Crear archivo `.env` basado en `.env.example`:
+
 ```bash
 cp .env.example .env
 ```
 
 Editar `.env` con tus credenciales:
+
 ```
 DB_HOST=localhost
 DB_USER=root
@@ -73,11 +85,13 @@ FLASK_DEBUG=True
 `SECRET_KEY` y `DB_PASSWORD` son obligatorias: la aplicación no inicia sin ellas.
 
 ### 3. Generar Secret Key
+
 ```bash
 python -c 'import secrets; print(secrets.token_hex(32))'
 ```
 
 Cada lector tiene su propio token. Para registrarlo:
+
 ```bash
 python registrar_dispositivo.py 2 "Lector principal"
 ```
@@ -85,7 +99,9 @@ python registrar_dispositivo.py 2 "Lector principal"
 Para el firmware, copiar `EjecutableHardware/secrets.example.h` como `EjecutableHardware/secrets.h` y usar ese token.
 
 ### 4. Migrar Contraseñas Existentes
+
 Si tienes administradores o usuarios con contraseñas en texto plano, ejecuta:
+
 ```bash
 python migrate_passwords.py
 ```
@@ -93,12 +109,15 @@ python migrate_passwords.py
 **IMPORTANTE:** Haz backup de tu base de datos antes de migrar.
 
 ### 5. Ejecutar la Aplicación
+
 ```bash
 python app.py
 ```
 
 ### 6. Medir la Disponibilidad
+
 En otra terminal, junto a `app.py`:
+
 ```bash
 python monitor_disponibilidad.py
 ```
@@ -118,6 +137,7 @@ Para desplegar en producción:
 ## Logs de Seguridad
 
 Los logs de seguridad se almacenan en `logs/security.log`:
+
 - Eventos de login (exitosos y fallidos)
 - Creación de usuarios
 - Actualización de usuarios
@@ -138,7 +158,18 @@ Los logs de seguridad se almacenan en `logs/security.log`:
 
 ```
 control_acceso/
-├── app.py                      # Aplicación principal con seguridad
+├── app.py                      # Punto de entrada
+├── control_acceso/             # Paquete de la aplicación
+│   ├── __init__.py             # create_app y cabeceras de seguridad
+│   ├── config.py               # Variables de entorno
+│   ├── database.py             # Conexión directa a MySQL
+│   ├── extensions.py           # SQLAlchemy, CSRF y rate limiting
+│   ├── models.py               # Modelos de datos
+│   ├── access.py               # Reglas de autorización de acceso
+│   ├── metrics.py              # Cálculo de métricas
+│   ├── security.py             # Contraseñas, tokens y log de seguridad
+│   ├── validators.py           # Validación de inputs
+│   └── routes/                 # Rutas por área (blueprints)
 ├── migrate_passwords.py        # Script de migración de contraseñas
 ├── requirements.txt            # Dependencias
 ├── .env.example               # Plantilla de configuración
