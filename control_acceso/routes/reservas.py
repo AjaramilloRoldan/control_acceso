@@ -2,10 +2,11 @@ from datetime import datetime
 
 from flask import (Blueprint, flash, jsonify, redirect, render_template, request, session, url_for)
 
+from ..clock import hora_actual
 from ..extensions import db
-from ..models import Instalacion, Reserva, User
+from ..models import Instalacion, Notificacion, Reserva, User
 from ..reservations import (ROL_POR_TIPO, ROLES_CON_RESERVA, ReservaError, cancelar_reserva, check_manager,
-                            crear_reserva, hora_actual, modificar_reserva, parse_date, parse_serie, parse_time,
+                            crear_reserva, modificar_reserva, parse_date, parse_serie, parse_time,
                             programar_series, read_series_csv)
 
 bp = Blueprint('reservas', __name__)
@@ -45,6 +46,7 @@ def instalaciones():
                            mis_reservas=mis_reservas,
                            reservables=reservables,
                            gestiona_reservas=bool(usuario and usuario.rol in ROLES_CON_RESERVA),
+                           sin_leer=Notificacion.query.filter_by(user_id=usuario.id, leida=False).count() if usuario else 0,
                            nombre_usuario=session.get('name'))
 
 @bp.route('/reservar', methods=['POST'])
@@ -81,6 +83,20 @@ def cancelar(reserva_id):
     check_manager(reserva, session_user(), session.get('role') == 'admin')
     cancelar_reserva(reserva, hora_actual())
     return jsonify({"id": reserva.id})
+
+@bp.route('/notificaciones')
+def notificaciones():
+    if session.get('role') != 'user': return redirect(url_for('auth.login'))
+    bandeja = Notificacion.query.filter_by(user_id=session['user_id']) \
+        .order_by(Notificacion.creado_en.desc(), Notificacion.id.desc()).all()
+    return render_template('notificaciones.html', notificaciones=bandeja, pendientes=any(not n.leida for n in bandeja))
+
+@bp.route('/notificaciones/leidas', methods=['POST'])
+def marcar_leidas():
+    if session.get('role') != 'user': return redirect(url_for('auth.login'))
+    Notificacion.query.filter_by(user_id=session['user_id'], leida=False).update({'leida': True})
+    db.session.commit()
+    return redirect(url_for('reservas.notificaciones'))
 
 @bp.route('/mis_reservas')
 def mis_reservas():

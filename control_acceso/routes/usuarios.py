@@ -1,9 +1,7 @@
-from datetime import datetime
-from zoneinfo import ZoneInfo
-
 from flask import Blueprint, current_app, flash, redirect, render_template, request, session, url_for
 from sqlalchemy.exc import IntegrityError
 
+from ..clock import hora_actual
 from ..extensions import db
 from ..models import Reserva, Tarjeta, User
 from ..security import hash_password, log_security_event
@@ -19,7 +17,7 @@ def replace_active_card(usuario, uid):
     if actual:
         actual.estado = 'revocada'
         actual.motivo_revocacion = 'reemplazo'
-        actual.fecha_revocacion = datetime.now()
+        actual.fecha_revocacion = hora_actual()
     usuario.tarjetas.append(Tarjeta(uid=uid))
 
 @bp.route('/usuarios')
@@ -145,7 +143,7 @@ def eliminar_usuario(id):
     usuario_objeto = User.query.get_or_404(id) 
     
     try:
-        hoy = datetime.now(ZoneInfo('America/Bogota')).date()
+        hoy = hora_actual().date()
         usuario_objeto.estado = 'inactivo'
         Reserva.query.filter(
             Reserva.user_id == id,

@@ -1,9 +1,10 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from flask import Blueprint, jsonify, redirect, render_template, session, url_for
 from sqlalchemy import func
 
 from .. import database
+from ..clock import hora_actual
 from ..extensions import db, limiter
 from ..metrics import ULTIMOS_ACCESOS_METRICAS, calcular_disponibilidad, percentil_95
 from ..models import Instalacion, Reserva
@@ -19,7 +20,7 @@ def dashboard():
     cursor.execute("SELECT COUNT(*) as total FROM users")
     total_users = cursor.fetchone()['total']
     
-    hoy = datetime.now().strftime('%Y-%m-%d')
+    hoy = hora_actual().strftime('%Y-%m-%d')
     cursor.execute("SELECT COUNT(*) as hoy FROM access_log WHERE DATE(timestamp) = %s", (hoy,))
     accesos_hoy = cursor.fetchone()['hoy']
 
@@ -45,7 +46,7 @@ def get_stats():
     labels, autorizados, denegados = [], [], []
     
     for i in range(6, -1, -1):
-        fecha_dt = (datetime.now() - timedelta(days=i))
+        fecha_dt = (hora_actual() - timedelta(days=i))
         fecha_str = fecha_dt.strftime('%Y-%m-%d')
         labels.append(fecha_dt.strftime('%a'))
         cursor.execute("SELECT COUNT(*) as c FROM access_log WHERE DATE(timestamp) = %s AND success = 1", (fecha_str,))
