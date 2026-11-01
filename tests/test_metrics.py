@@ -12,7 +12,7 @@ def stored_log(log_id):
         return db.session.get(AccessLog, log_id)
 
 
-def validate(client, uid='aabbcc', **extra):
+def validate(client, uid='aabbccdd', **extra):
     return client.post('/historial', json={'uid': uid, 'instalacion_id': 1, **extra}, headers=DEVICE_HEADERS)
 
 
@@ -24,14 +24,14 @@ def test_access_stores_installation_and_ignores_client_read_time(client):
 
 
 def test_denied_access_also_returns_log_id(client):
-    response = validate(client, uid='ddeeff')
+    response = validate(client, uid='ddeeff00')
     assert stored_log(response.get_json()['log_id']).success is False
 
 
 @pytest.mark.parametrize('inst_id', [None, 'x', 999])
-def test_access_rejects_invalid_installation(client, inst_id):
-    response = client.post('/historial', json={'uid': 'aabbcc', 'instalacion_id': inst_id}, headers=DEVICE_HEADERS)
-    assert response.status_code == 400
+def test_access_rejects_installation_not_assigned_to_reader(client, inst_id):
+    response = client.post('/historial', json={'uid': 'aabbccdd', 'instalacion_id': inst_id}, headers=DEVICE_HEADERS)
+    assert response.status_code == 403
 
 
 def test_read_time_is_stored_once(client):

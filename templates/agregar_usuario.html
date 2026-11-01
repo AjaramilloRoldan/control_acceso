@@ -31,6 +31,26 @@
                         class="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors">
                 </div>
                 <div>
+                    <label for="apellido" class="block text-sm font-medium text-slate-400 mb-2">Apellido</label>
+                    <input type="text" id="apellido" name="apellido" maxlength="45" required value="" class="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors">
+                </div>
+                <div>
+                    <label for="identificacion" class="block text-sm font-medium text-slate-400 mb-2">Identificación</label>
+                    <input type="text" id="identificacion" name="identificacion" inputmode="numeric" pattern="[0-9]{6,10}" required value="" class="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors">
+                </div>
+                <div>
+                    <label for="email" class="block text-sm font-medium text-slate-400 mb-2">Correo electrónico</label>
+                    <input type="email" id="email" name="email" maxlength="200" required value="" class="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors">
+                </div>
+                <div>
+                    <label for="rol" class="block text-sm font-medium text-slate-400 mb-2">Rol</label>
+                    <select id="rol" name="rol" class="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors">
+                        <option value="estudiante">Estudiante</option>
+                        <option value="docente">Docente</option>
+                        <option value="administrativo">Administrativo</option>
+                    </select>
+                </div>
+                <div>
                     <label for="rfid" class="block text-sm font-medium text-slate-400 mb-2">RFID</label>
                     <input type="text" id="rfid" name="rfid" required value="{{ rfid_pre or '' }}"
                         class="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl font-mono text-emerald-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors">
