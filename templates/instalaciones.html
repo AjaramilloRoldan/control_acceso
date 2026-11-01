@@ -287,7 +287,10 @@
 
         async function confirmDelete(resId) {
             if (confirm('¿Deseas cancelar esta reserva?')) {
-                const response = await fetch(`/cancelar_reserva/${resId}`);
+                const response = await fetch(`/cancelar_reserva/${resId}`, {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': '{{ csrf_token() }}' }
+                });
                 if (response.ok) {
                     const badge = document.getElementById('successBadge');
                     badge.classList.remove('hidden');

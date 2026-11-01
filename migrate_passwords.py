@@ -15,7 +15,7 @@ def get_db():
     return mysql.connector.connect(
         host=os.getenv('DB_HOST', 'localhost'),
         user=os.getenv('DB_USER', 'root'),
-        password=os.getenv('DB_PASSWORD', 'Roldan.1982'),
+        password=os.environ['DB_PASSWORD'],
         database=os.getenv('DB_NAME', 'control_acceso')
     )
 
@@ -33,21 +33,24 @@ def is_bcrypt_hash(password):
     except:
         return False
 
-def migrate_passwords():
+def migrate_passwords(table):
     """Migra contraseñas de texto plano a bcrypt"""
     conn = get_db()
     cursor = conn.cursor(dictionary=True)
     
     try:
+        # Un hash bcrypt no cabe en columnas más cortas
+        cursor.execute(f"ALTER TABLE {table} MODIFY password VARCHAR(255) NOT NULL")
+
         # Obtener todos los usuarios
-        cursor.execute("SELECT id, username, password FROM users")
+        cursor.execute(f"SELECT id, username, password FROM {table}")
         users = cursor.fetchall()
         
         migrated_count = 0
         skipped_count = 0
         error_count = 0
         
-        print(f"Total de usuarios encontrados: {len(users)}")
+        print(f"Tabla {table} - usuarios encontrados: {len(users)}")
         print("-" * 50)
         
         for user in users:
@@ -66,7 +69,7 @@ def migrate_passwords():
                 hashed_password = hash_password(current_password)
                 
                 # Actualizar en la base de datos
-                update_query = "UPDATE users SET password = %s WHERE id = %s"
+                update_query = f"UPDATE {table} SET password = %s WHERE id = %s"
                 cursor.execute(update_query, (hashed_password, user_id))
                 conn.commit()
                 
@@ -100,6 +103,7 @@ if __name__ == "__main__":
     
     confirm = input("¿Desea continuar? (s/n): ")
     if confirm.lower() == 's':
-        migrate_passwords()
+        for table in ('admin', 'users'):
+            migrate_passwords(table)
     else:
         print("Migración cancelada.")
