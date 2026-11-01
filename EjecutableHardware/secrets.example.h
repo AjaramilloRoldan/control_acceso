@@ -2,4 +2,5 @@
 #define WIFI_SSID "nombre_de_la_red"
 #define WIFI_PASSWORD "contrasena_de_la_red"
 #define SERVER_URL "http://IP_DEL_SERVIDOR:5000/historial"
+#define METRICS_URL "http://IP_DEL_SERVIDOR:5000/api/metricas_acceso"
 #define DEVICE_TOKEN "mismo_valor_que_DEVICE_TOKEN_en_.env"
