@@ -15,6 +15,8 @@ def evaluate_access(uid, instalacion, ahora):
         return user, 'TARJETA_REVOCADA'
     if user.estado != 'activo':
         return user, 'USUARIO_INACTIVO'
+    if user.autorizacion_datos is None:
+        return user, 'SIN_AUTORIZACION_DATOS'
     if instalacion.estado not in ('activo', 'mantenimiento'):
         return user, 'ESPACIO_NO_OPERATIVO'
     if user.rol not in instalacion.roles_autorizados:
