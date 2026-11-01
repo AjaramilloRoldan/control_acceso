@@ -166,6 +166,17 @@ def test_availability_requires_session_and_valid_date(client):
     assert client.get(f'/api/disponibilidad/1/{day}').status_code == 200
 
 
+def test_login_limit_counts_only_login_attempts(client):
+    app_module.limiter.enabled = True
+    app_module.limiter.reset()
+    try:
+        assert all(client.get('/login').status_code == 200 for _ in range(8))
+        statuses = [client.post('/login', data={'username': 'x', 'password': 'y'}).status_code for _ in range(6)]
+    finally:
+        app_module.limiter.enabled = False
+    assert statuses == [200] * 5 + [429]
+
+
 def test_app_refuses_to_start_without_required_secret(monkeypatch):
     monkeypatch.delenv('SECRET_KEY')
     with pytest.raises(RuntimeError):

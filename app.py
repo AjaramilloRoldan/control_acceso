@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, redirect, session, url_for, jsonify, flash
 import mysql.connector
 import hmac
+import math
 import os
 import time
 from datetime import datetime, timedelta, time as dt_time
@@ -52,7 +53,7 @@ def set_security_headers(response):
     response.headers['X-Frame-Options'] = 'DENY'
     response.headers['X-XSS-Protection'] = '1; mode=block'
     response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
-    response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; img-src 'self' data: https:; font-src 'self' https://fonts.gstatic.com;"
+    response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com https://npmcdn.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com; img-src 'self' data: https:; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com;"
     return response
 
 # Configuración de Carga de Imágenes
@@ -135,6 +136,45 @@ def verify_password(password, hashed_password):
         log_security_event('INVALID_PASSWORD_HASH', details='Ejecutar migrate_passwords.py')
         return False
 
+# --- AUTENTICACIÓN DE LECTORES ---
+
+def device_token_is_valid():
+    return hmac.compare_digest(request.headers.get('X-Device-Token', ''), DEVICE_TOKEN)
+
+# --- MÉTRICAS ---
+
+HEALTH_LOG = 'logs/disponibilidad.log'
+TIEMPO_LECTURA_MAXIMO_MS = 60000
+ULTIMOS_ACCESOS_METRICAS = 100
+
+def percentil_95(valores):
+    """Percentil 95 por rango más cercano"""
+    if not valores:
+        return None
+    ordenados = sorted(valores)
+    return ordenados[math.ceil(0.95 * len(ordenados)) - 1]
+
+def calcular_disponibilidad(ruta=HEALTH_LOG, dias=30, ahora=None):
+    """Porcentaje de sondeos exitosos de /health en horario lunes a sábado de 06:00 a 22:00"""
+    if not os.path.exists(ruta):
+        return None
+    ahora = ahora or datetime.now(ZoneInfo('America/Bogota')).replace(tzinfo=None)
+    limite = ahora - timedelta(days=dias)
+    exitosos = total = 0
+    with open(ruta, encoding='utf-8') as archivo:
+        for linea in archivo:
+            try:
+                marca, estado = linea.strip().split(',')
+                momento = datetime.fromisoformat(marca)
+            except ValueError:
+                app.logger.warning('Línea inválida en %s: %r', ruta, linea)
+                continue
+            if momento < limite or momento.weekday() == 6 or not 6 <= momento.hour < 22:
+                continue
+            total += 1
+            exitosos += estado == 'ok'
+    return round(exitosos / total * 100, 2) if total else None
+
 # --- VALIDACIÓN DE INPUTS ---
 
 def validate_username(username):
@@ -178,6 +218,7 @@ class AccessLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     rfid_uid = db.Column(db.String(50), nullable=True)
+    instalacion_id = db.Column(db.Integer, db.ForeignKey('instalaciones.id', ondelete='SET NULL'), nullable=True)
     timestamp = db.Column(db.DateTime, default=datetime.now)
     success = db.Column(db.Boolean, default=True)
     tiempo_lectura_ms = db.Column(db.Integer, nullable=True)
@@ -286,7 +327,7 @@ def index():
     return render_template('index.html')
 
 @app.route('/login', methods=['GET', 'POST'])
-@limiter.limit("5 per 15 minutes")
+@limiter.limit("5 per 15 minutes", methods=['POST'])
 def login():
     if request.method == 'POST':
         username = request.form.get('username')
@@ -442,31 +483,32 @@ def get_stats():
     cursor.execute("SELECT COUNT(*) as ok FROM access_log WHERE success = 1")
     porcentaje_exito = round((cursor.fetchone()['ok'] / total) * 100, 1)
 
-    # Nuevas métricas
-    # Tiempo de lectura promedio (últimos 100 accesos)
-    cursor.execute("SELECT AVG(tiempo_lectura_ms) as avg_time FROM access_log WHERE tiempo_lectura_ms IS NOT NULL ORDER BY timestamp DESC LIMIT 100")
-    avg_lectura_result = cursor.fetchone()
-    tiempo_lectura_promedio = int(avg_lectura_result['avg_time']) if avg_lectura_result and avg_lectura_result['avg_time'] else 0
+    # Solo registros del firmware que mide correctamente (identificados por instalacion_id)
+    cursor.execute("""
+        SELECT tiempo_lectura_ms FROM access_log
+        WHERE instalacion_id IS NOT NULL AND tiempo_lectura_ms IS NOT NULL
+        ORDER BY timestamp DESC LIMIT %s
+    """, (ULTIMOS_ACCESOS_METRICAS,))
+    tiempos_lectura = [fila['tiempo_lectura_ms'] for fila in cursor.fetchall()]
+    tiempo_lectura_promedio = round(sum(tiempos_lectura) / len(tiempos_lectura)) if tiempos_lectura else None
 
-    # Disponibilidad (porcentaje de solicitudes exitosas del servidor - HTTP 200 vs otros)
-    cursor.execute("SELECT COUNT(*) as total_requests FROM access_log")
-    total_requests = cursor.fetchone()['total_requests'] or 1
-    cursor.execute("SELECT COUNT(*) as successful_requests FROM access_log WHERE success = 1")
-    successful_requests = cursor.fetchone()['successful_requests'] or 0
-    disponibilidad = round((successful_requests / total_requests) * 100, 1)
+    cursor.execute("""
+        SELECT AVG(tiempo_reconexion_wifi) as avg_reconexion FROM access_log
+        WHERE instalacion_id IS NOT NULL AND tiempo_reconexion_wifi > 0
+    """)
+    avg_reconexion = cursor.fetchone()['avg_reconexion']
+    tiempo_reconexion_promedio = round(avg_reconexion) if avg_reconexion is not None else None
 
-    # Reconexión WiFi promedio
-    cursor.execute("SELECT AVG(tiempo_reconexion_wifi) as avg_reconexion FROM access_log WHERE tiempo_reconexion_wifi IS NOT NULL AND tiempo_reconexion_wifi > 0")
-    avg_reconexion_result = cursor.fetchone()
-    tiempo_reconexion_promedio = int(avg_reconexion_result['avg_reconexion']) if avg_reconexion_result and avg_reconexion_result['avg_reconexion'] else 0
+    cursor.execute("""
+        SELECT i.nombre, SUM(al.success = 1) as exitos, SUM(al.success = 0) as fallas
+        FROM access_log al JOIN instalaciones i ON al.instalacion_id = i.id
+        GROUP BY i.nombre ORDER BY i.nombre
+    """)
+    eficiencia = cursor.fetchall()
 
     reserva_data = db.session.query(Instalacion.nombre, func.count(Reserva.id)).join(Reserva).filter(Reserva.estado == 'activa').group_by(Instalacion.nombre).all()
     inst_names = [r[0] for r in reserva_data]
     inst_counts = [r[1] for r in reserva_data]
-
-    eficiencia_labels = inst_names if inst_names else ["Sin Datos"]
-    success_by_inst = [sum(autorizados) // (len(inst_names) or 1) for _ in eficiencia_labels]
-    fail_by_inst = [sum(denegados) // (len(inst_names) or 1) for _ in eficiencia_labels]
 
     cursor.close()
     conn.close()
@@ -474,9 +516,12 @@ def get_stats():
     return jsonify({
         "labels": labels, "autorizados": autorizados, "denegados": denegados, 
         "porcentaje_exito": porcentaje_exito, "inst_names": inst_names, "inst_counts": inst_counts,
-        "eficiencia_labels": eficiencia_labels, "success_by_inst": success_by_inst, "fail_by_inst": fail_by_inst,
+        "eficiencia_labels": [fila['nombre'] for fila in eficiencia],
+        "success_by_inst": [int(fila['exitos']) for fila in eficiencia],
+        "fail_by_inst": [int(fila['fallas']) for fila in eficiencia],
         "tiempo_lectura_promedio": tiempo_lectura_promedio,
-        "disponibilidad": disponibilidad,
+        "tiempo_lectura_p95": percentil_95(tiempos_lectura),
+        "disponibilidad": calcular_disponibilidad(),
         "tiempo_reconexion_wifi": tiempo_reconexion_promedio
     })
 
@@ -630,11 +675,19 @@ def eliminar_usuario(id):
 
 # --- LÓGICA DE CONTROL DE ACCESO (RFID) ---
 
+def registrar_acceso(user_id, uid, instalacion_id, autorizado, tiempo_reconexion_wifi, momento):
+    registro = AccessLog(user_id=user_id, rfid_uid=uid, instalacion_id=instalacion_id, success=autorizado,
+                         tiempo_reconexion_wifi=tiempo_reconexion_wifi, timestamp=momento)
+    db.session.add(registro)
+    db.session.commit()
+    return registro.id
+
 @app.route('/historial', methods=['GET', 'POST'])
 @csrf.exempt
+@limiter.exempt
 def historial():
     if request.method == 'POST':
-        if not hmac.compare_digest(request.headers.get('X-Device-Token', ''), DEVICE_TOKEN):
+        if not device_token_is_valid():
             log_security_event('DEVICE_AUTH_FAILED', ip=request.remote_addr)
             return jsonify({"message": "Dispositivo no autorizado", "access": False}), 401
 
@@ -643,26 +696,25 @@ def historial():
         if not isinstance(uid, str) or not validate_rfid(uid):
             return jsonify({"message": "UID inválido", "access": False}), 400
 
-        inst_id = data.get('instalacion_id', 1)
-        tiempo_lectura = data.get('tiempo_lectura')
+        inst_id = data.get('instalacion_id')
+        if not isinstance(inst_id, int) or db.session.get(Instalacion, inst_id) is None:
+            return jsonify({"message": "Instalación inválida", "access": False}), 400
+
         tiempo_reconexion_wifi = data.get('tiempo_reconexion_wifi')
-        
+        if not isinstance(tiempo_reconexion_wifi, int) or tiempo_reconexion_wifi < 0:
+            tiempo_reconexion_wifi = None
+
         user = User.query.filter_by(rfid=uid).first()
-        
+
         # --- LÓGICA DE TIEMPO AJUSTADA PARA COMPATIBILIDAD CON WINDOWS (COLOMBIA) ---
         zona_co = ZoneInfo('America/Bogota')
         ahora = datetime.now(zona_co).replace(tzinfo=None)
         hora_actual = ahora.time()
         fecha_actual = ahora.date()
 
-        # Print de depuración para ver en consola lo que evalúa el backend
-        print(f"🔎 Validando acceso: {user.name if user else 'Desconocido'} | Instalación ID: {inst_id} | Fecha: {fecha_actual} | Hora: {hora_actual}")
-
         if not user:
-            log = AccessLog(user_id=None, rfid_uid=uid, success=False, tiempo_lectura_ms=tiempo_lectura, tiempo_reconexion_wifi=tiempo_reconexion_wifi, timestamp=ahora)
-            db.session.add(log)
-            db.session.commit()
-            return jsonify({"message": "Acceso denegado: Usuario no registrado", "access": False}), 403
+            log_id = registrar_acceso(None, uid, inst_id, False, tiempo_reconexion_wifi, ahora)
+            return jsonify({"message": "Acceso denegado: Usuario no registrado", "access": False, "log_id": log_id}), 403
 
         reserva = Reserva.query.filter(
             Reserva.user_id == user.id,
@@ -673,19 +725,13 @@ def historial():
             Reserva.estado == 'activa'
         ).first()
 
+        log_id = registrar_acceso(user.id, uid, inst_id, reserva is not None, tiempo_reconexion_wifi, ahora)
         if reserva:
-            log = AccessLog(user_id=user.id, rfid_uid=uid, success=True, tiempo_lectura_ms=tiempo_lectura, tiempo_reconexion_wifi=tiempo_reconexion_wifi, timestamp=ahora)
-            db.session.add(log)
-            db.session.commit()
-            return jsonify({"message": f"Acceso autorizado: {user.name}", "access": True}), 200
-        else:
-            log = AccessLog(user_id=user.id, rfid_uid=uid, success=False, tiempo_lectura_ms=tiempo_lectura, tiempo_reconexion_wifi=tiempo_reconexion_wifi, timestamp=ahora)
-            db.session.add(log)
-            db.session.commit()
-            return jsonify({"message": "Sin reserva activa", "access": False}), 401
+            return jsonify({"message": f"Acceso autorizado: {user.name}", "access": True, "log_id": log_id}), 200
+        return jsonify({"message": "Sin reserva activa", "access": False, "log_id": log_id}), 401
 
     if session.get('role') != 'admin': return redirect(url_for('login'))
-    
+
     conn = get_db()
     cursor = conn.cursor(dictionary=True)
     cursor.execute("""
@@ -697,6 +743,40 @@ def historial():
     cursor.close()
     conn.close()
     return render_template('historial.html', logs=logs)
+
+@app.route('/api/metricas_acceso', methods=['POST'])
+@csrf.exempt
+@limiter.exempt
+def registrar_metricas_acceso():
+    if not device_token_is_valid():
+        log_security_event('DEVICE_AUTH_FAILED', ip=request.remote_addr)
+        return jsonify({"error": "Dispositivo no autorizado"}), 401
+
+    data = request.get_json(silent=True) or {}
+    log_id = data.get('log_id')
+    tiempo_lectura = data.get('tiempo_lectura')
+    if not isinstance(log_id, int) or not isinstance(tiempo_lectura, int) \
+            or not 0 <= tiempo_lectura <= TIEMPO_LECTURA_MAXIMO_MS:
+        return jsonify({"error": "Métrica inválida"}), 400
+
+    registro = db.session.get(AccessLog, log_id)
+    if registro is None:
+        return jsonify({"error": "Registro no encontrado"}), 404
+    if registro.tiempo_lectura_ms is None:
+        registro.tiempo_lectura_ms = tiempo_lectura
+        db.session.commit()
+    return jsonify({"ok": True})
+
+@app.route('/health')
+@limiter.exempt
+def health():
+    try:
+        conn = get_db()
+        conn.close()
+        return jsonify({"status": "ok"})
+    except mysql.connector.Error:
+        app.logger.exception('Fallo de conexión a la base de datos en /health')
+        return jsonify({"status": "error"}), 503
 
 @app.route('/api/disponibilidad/<int:inst_id>/<fecha>')
 def consultar_disponibilidad(inst_id, fecha):

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Panel Premium - Control Acceso</title>
     <link rel="icon" href="/static/pestana.png">   
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tailwindcss-cdn@3.4.10/tailwindcss.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script>
@@ -105,12 +105,12 @@
                 <div class="glass p-6 rounded-3xl border-l-4 border-l-amber-500 hover:scale-105 transition-transform">
                     <p class="text-slate-400 text-xs font-bold uppercase tracking-widest">Tiempo Lectura</p>
                     <h2 class="text-3xl font-bold text-white mt-2"><span id="tiempo-lectura">--</span> ms</h2>
-                    <p class="text-slate-500 text-xs mt-1">Promedio (últimos 100)</p>
+                    <p class="text-slate-500 text-xs mt-1">Promedio últimos 100 · P95: <span id="tiempo-lectura-p95">--</span> ms</p>
                 </div>
                 <div class="glass p-6 rounded-3xl border-l-4 border-l-cyan-500 hover:scale-105 transition-transform">
                     <p class="text-slate-400 text-xs font-bold uppercase tracking-widest">Disponibilidad</p>
                     <h2 class="text-3xl font-bold text-white mt-2"><span id="disponibilidad">--</span>%</h2>
-                    <p class="text-slate-500 text-xs mt-1">Solicitudes exitosas</p>
+                    <p class="text-slate-500 text-xs mt-1">Sondeos /health, últimos 30 días</p>
                 </div>
                 <div class="glass p-6 rounded-3xl border-l-4 border-l-orange-500 hover:scale-105 transition-transform">
                     <p class="text-slate-400 text-xs font-bold uppercase tracking-widest">Reconexión WiFi</p>
@@ -177,9 +177,10 @@
             const data = await response.json();
 
             // Actualizar métricas de tarjetas
-            document.getElementById('tiempo-lectura').textContent = data.tiempo_lectura_promedio || '--';
-            document.getElementById('disponibilidad').textContent = data.disponibilidad || '--';
-            document.getElementById('reconexion-wifi').textContent = (data.tiempo_reconexion_wifi / 1000).toFixed(1) || '--';
+            document.getElementById('tiempo-lectura').textContent = data.tiempo_lectura_promedio ?? '--';
+            document.getElementById('tiempo-lectura-p95').textContent = data.tiempo_lectura_p95 ?? '--';
+            document.getElementById('disponibilidad').textContent = data.disponibilidad ?? '--';
+            document.getElementById('reconexion-wifi').textContent = data.tiempo_reconexion_wifi === null ? '--' : (data.tiempo_reconexion_wifi / 1000).toFixed(1);
 
             // 1. Gráfica de Tráfico (Area)
             new ApexCharts(document.querySelector("#main-area-chart"), {
