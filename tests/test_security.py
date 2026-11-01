@@ -6,14 +6,15 @@ from zoneinfo import ZoneInfo
 import pytest
 
 os.environ['SECRET_KEY'] = 'test-secret'
-os.environ['DEVICE_TOKEN'] = 'test-device-token'
 os.environ['DATABASE_URL'] = f"sqlite:///{tempfile.mkdtemp()}/test.db"
 
 import app as app_module
-from app import AccessLog, Instalacion, Reserva, User, app, db, hash_password, verify_password
+from app import (AccessLog, Dispositivo, Instalacion, Reserva, Tarjeta, User, app, db, hash_device_token,
+                 hash_password, verify_password)
 
 ADMIN_PASSWORD = 'clave-admin-segura'
-DEVICE_HEADERS = {'X-Device-Token': 'test-device-token'}
+DEVICE_TOKEN = 'test-device-token'
+DEVICE_HEADERS = {'X-Device-Token': DEVICE_TOKEN}
 
 
 class FakeCursor:
@@ -52,9 +53,12 @@ def client(monkeypatch):
     with app.app_context():
         db.drop_all()
         db.create_all()
-        db.session.add(User(id=10, name='Ana', rfid='aabbcc', username='ana', password=hash_password('clave123')))
-        db.session.add(User(id=11, name='Luis', rfid='ddeeff', username='luis', password=hash_password('clave123')))
+        db.session.add(User(id=10, name='Ana', username='ana', email='ana@ucp.edu.co', password=hash_password('clave123')))
+        db.session.add(User(id=11, name='Luis', username='luis', password=hash_password('clave123')))
         db.session.add(Instalacion(id=1, nombre='Squash'))
+        db.session.add(Dispositivo(id=1, instalacion_id=1, token_hash=hash_device_token(DEVICE_TOKEN)))
+        db.session.add(Tarjeta(uid='aabbccdd', user_id=10))
+        db.session.add(Tarjeta(uid='ddeeff00', user_id=11))
         ahora = datetime.now(ZoneInfo('America/Bogota'))
         db.session.add(Reserva(
             id=1, user_id=10, instalacion_id=1, fecha_reserva=ahora.date(),
@@ -111,7 +115,8 @@ def test_delete_user_rejects_get_even_for_admin(client):
 def test_admin_can_delete_user_with_post(client):
     login_as(client, 'admin', 1)
     client.post('/eliminar_usuario/11')
-    assert not user_exists(11)
+    with app.app_context():
+        assert db.session.get(User, 11).estado == 'inactivo'
 
 
 def test_delete_installation_rejects_get(client):
@@ -134,7 +139,7 @@ def test_owner_can_cancel_reservation(client):
 
 @pytest.mark.parametrize('headers', [{}, {'X-Device-Token': 'incorrecto'}])
 def test_reader_without_valid_token_cannot_request_access(client, headers):
-    response = client.post('/historial', json={'uid': 'aabbcc', 'instalacion_id': 1}, headers=headers)
+    response = client.post('/historial', json={'uid': 'aabbccdd', 'instalacion_id': 1}, headers=headers)
     assert response.status_code == 401
     assert response.get_json()['access'] is False
     with app.app_context():
@@ -142,20 +147,21 @@ def test_reader_without_valid_token_cannot_request_access(client, headers):
 
 
 def test_reader_with_token_is_authorized_during_reservation(client):
-    response = client.post('/historial', json={'uid': 'aabbcc', 'instalacion_id': 1}, headers=DEVICE_HEADERS)
+    response = client.post('/historial', json={'uid': 'aabbccdd', 'instalacion_id': 1}, headers=DEVICE_HEADERS)
     assert response.status_code == 200
     assert 'Acceso autorizado' in response.get_json()['message']
 
 
 def test_reader_with_token_is_denied_without_reservation(client):
-    response = client.post('/historial', json={'uid': 'ddeeff', 'instalacion_id': 1}, headers=DEVICE_HEADERS)
-    assert response.status_code == 401
+    response = client.post('/historial', json={'uid': 'ddeeff00', 'instalacion_id': 1}, headers=DEVICE_HEADERS)
+    assert response.status_code == 403
     assert response.get_json()['access'] is False
 
 
-@pytest.mark.parametrize('payload', [{}, {'uid': 123}, {'uid': 'x'}])
-def test_reader_rejects_invalid_uid(client, payload):
-    assert client.post('/historial', json=payload, headers=DEVICE_HEADERS).status_code == 400
+@pytest.mark.parametrize('uid', [None, 123, 'x', 'aabbcc'])
+def test_reader_rejects_invalid_uid(client, uid):
+    response = client.post('/historial', json={'uid': uid, 'instalacion_id': 1}, headers=DEVICE_HEADERS)
+    assert response.status_code == 400
 
 
 def test_availability_requires_session_and_valid_date(client):
