@@ -85,3 +85,15 @@ class Reserva(db.Model):
     hora_inicio = db.Column(db.Time, nullable=False)
     hora_fin = db.Column(db.Time, nullable=False)
     estado = db.Column(db.String(20), default='activa')
+    tipo = db.Column(db.String(20), nullable=False, default='individual')
+    id_recurrencia = db.Column(db.Integer, nullable=True)
+    motivo = db.Column(db.String(200), nullable=True)
+
+    @property
+    def inicio(self):
+        return datetime.combine(self.fecha_reserva, self.hora_inicio)
+
+    def estado_actual(self, ahora):
+        if self.estado == 'activa' and datetime.combine(self.fecha_reserva, self.hora_fin) <= ahora:
+            return 'completada'
+        return self.estado
