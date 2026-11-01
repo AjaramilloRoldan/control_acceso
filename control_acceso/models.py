@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from .clock import hora_actual
 from .extensions import db
 
 ROLES_USUARIO = ('estudiante', 'docente', 'administrativo')
@@ -35,7 +36,7 @@ class Tarjeta(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     estado = db.Column(db.String(10), nullable=False, default='activa')
     motivo_revocacion = db.Column(db.String(20), nullable=True)
-    fecha_asignacion = db.Column(db.DateTime, nullable=False, default=datetime.now)
+    fecha_asignacion = db.Column(db.DateTime, nullable=False, default=hora_actual)
     fecha_revocacion = db.Column(db.DateTime, nullable=True)
 
 class Dispositivo(db.Model):
@@ -54,7 +55,7 @@ class AccessLog(db.Model):
     rfid_uid = db.Column(db.String(50), nullable=True)
     instalacion_id = db.Column(db.Integer, db.ForeignKey('instalaciones.id', ondelete='SET NULL'), nullable=True)
     dispositivo_id = db.Column(db.Integer, db.ForeignKey('dispositivos.id', ondelete='SET NULL'), nullable=True)
-    timestamp = db.Column(db.DateTime, default=datetime.now)
+    timestamp = db.Column(db.DateTime, default=hora_actual)
     success = db.Column(db.Boolean, default=True)
     motivo = db.Column(db.String(45), nullable=True)
     tiempo_lectura_ms = db.Column(db.Integer, nullable=True)
@@ -75,6 +76,14 @@ class Instalacion(db.Model):
     @property
     def roles_autorizados(self):
         return self.roles_permitidos.split(',') if self.roles_permitidos else ROLES_USUARIO
+
+class Notificacion(db.Model):
+    __tablename__ = 'notificaciones'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    mensaje = db.Column(db.String(255), nullable=False)
+    leida = db.Column(db.Boolean, nullable=False, default=False)
+    creado_en = db.Column(db.DateTime, nullable=False, default=hora_actual)
 
 class Reserva(db.Model):
     __tablename__ = 'reservas'

@@ -2,10 +2,10 @@ import csv
 import io
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
-from zoneinfo import ZoneInfo
 
 from .extensions import db
 from .models import Instalacion, Reserva, User
+from .notifications import notificar, notificar_reserva
 
 HORA_APERTURA = time(6, 0)
 HORA_CIERRE = time(22, 0)
@@ -36,10 +36,6 @@ class Serie:
     hora_fin: time
     fecha_inicial: date
     fecha_final: date
-
-
-def hora_actual():
-    return datetime.now(ZoneInfo('America/Bogota')).replace(tzinfo=None)
 
 
 def parse_date(value):
@@ -140,6 +136,7 @@ def crear_reserva(usuario, instalacion_id, fecha, inicio, fin, motivo, ahora):
                       hora_inicio=inicio, hora_fin=fin, motivo=motivo)
     db.session.add(reserva)
     db.session.commit()
+    notificar_reserva(reserva, 'confirmada')
     return reserva
 
 
@@ -156,6 +153,7 @@ def modificar_reserva(reserva, fecha, inicio, fin, ahora):
     reserva.hora_inicio = inicio
     reserva.hora_fin = fin
     db.session.commit()
+    notificar_reserva(reserva, 'modificada')
 
 
 def cancelar_reserva(reserva, ahora):
@@ -163,6 +161,7 @@ def cancelar_reserva(reserva, ahora):
         raise ReservaError('La reserva ya inició o no está vigente', 409)
     reserva.estado = 'cancelada'
     db.session.commit()
+    notificar_reserva(reserva, 'cancelada')
 
 
 def parse_serie(campos, tipo):
@@ -247,4 +246,9 @@ def programar_series(series, ahora):
     if not creadas:
         raise ReservaError('El periodo no incluye ese día de la semana', 400)
     db.session.commit()
+    for serie in series:
+        notificar(db.session.get(User, serie.usuario_id),
+                  f'Se programó tu horario en {instalaciones[serie.instalacion_id].nombre}: '
+                  f"del {serie.fecha_inicial} al {serie.fecha_final}, "
+                  f"de {serie.hora_inicio.strftime('%H:%M')} a {serie.hora_fin.strftime('%H:%M')}.")
     return creadas

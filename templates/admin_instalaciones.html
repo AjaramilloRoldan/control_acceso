@@ -52,6 +52,9 @@
             <a href="/reservas/recurrentes" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl font-medium transition-all group">
                 <span class="group-hover:scale-110 transition-transform">📅</span> Programación
             </a>
+            <a href="/reportes" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl font-medium transition-all group">
+                <span class="group-hover:scale-110 transition-transform">📊</span> Reportes
+            </a>
             <a href="/historial" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl font-medium transition-all group">
                 <span class="group-hover:scale-110 transition-transform">📝</span> Historial
             </a>
@@ -107,9 +110,12 @@
                     </div>
                     <div class="p-6">
                         <h3 class="text-xl font-bold text-white mb-2">{{ inst.nombre }}</h3>
+                        {% if inst.estado != 'activo' %}
+                        <p class="text-xs font-bold text-amber-400 mb-2">{{ inst.estado|replace('_', ' ')|capitalize }}</p>
+                        {% endif %}
                         <p class="text-slate-400 text-sm line-clamp-2 mb-6">{{ inst.descripcion }}</p>
                         <div class="flex gap-3">
-                            <button onclick="openModal('edit', '{{ inst.id }}', '{{ inst.nombre }}', '{{ inst.descripcion }}', '{{ inst.imagen }}')" 
+                            <button onclick="openModal('edit', '{{ inst.id }}', '{{ inst.nombre }}', '{{ inst.descripcion }}', '{{ inst.imagen }}', '{{ inst.estado }}', '{{ inst.roles_autorizados|join(',') }}')" 
                                     class="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition-all border border-white/5 text-sm">
                                 Editar
                             </button>
@@ -134,6 +140,7 @@
                 </div>
 
                 <form id="instForm" method="POST" enctype="multipart/form-data" class="space-y-6">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                     <div>
                         <label class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2 ml-1">Nombre</label>
                         <input type="text" name="nombre" id="formNombre" required class="w-full bg-dark-900/50 border border-white/5 rounded-2xl px-5 py-4 text-white focus:outline-none focus:border-emerald-500/50 transition-all">
@@ -141,6 +148,24 @@
                     <div>
                         <label class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2 ml-1">Descripción</label>
                         <textarea name="descripcion" id="formDesc" rows="3" class="w-full bg-dark-900/50 border border-white/5 rounded-2xl px-5 py-4 text-white focus:outline-none focus:border-emerald-500/50 transition-all resize-none"></textarea>
+                    </div>
+                    <div id="formPolitica" class="hidden space-y-4">
+                        <div>
+                            <label for="formEstado" class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2 ml-1">Estado</label>
+                            <select name="estado" id="formEstado" class="w-full bg-dark-900/50 border border-white/5 rounded-2xl px-5 py-4 text-white focus:outline-none focus:border-emerald-500/50 transition-all">
+                                <option value="activo">Activo</option>
+                                <option value="mantenimiento">Mantenimiento</option>
+                                <option value="fuera_servicio">Fuera de servicio</option>
+                            </select>
+                        </div>
+                        <div>
+                            <span class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2 ml-1">Roles autorizados</span>
+                            <div class="flex flex-wrap gap-4 text-sm text-slate-300">
+                                <label><input type="checkbox" name="roles_permitidos" value="estudiante"> Estudiante</label>
+                                <label><input type="checkbox" name="roles_permitidos" value="docente"> Docente</label>
+                                <label><input type="checkbox" name="roles_permitidos" value="administrativo"> Administrativo</label>
+                            </div>
+                        </div>
                     </div>
                     <div>
                         <label class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2 ml-1">Imagen</label>
@@ -199,9 +224,14 @@
         const previewContainer = document.getElementById('previewContainer');
 
         // Lógica de Formularios Crear/Editar
-        function openModal(mode, id = '', nombre = '', desc = '', img = '') {
+        function openModal(mode, id = '', nombre = '', desc = '', img = '', estado = 'activo', roles = '') {
             modal.classList.remove('hidden');
             modal.classList.add('flex');
+            document.getElementById('formPolitica').classList.toggle('hidden', mode === 'create');
+            document.getElementById('formEstado').value = estado;
+            document.querySelectorAll('input[name="roles_permitidos"]').forEach(casilla => {
+                casilla.checked = roles.split(',').includes(casilla.value);
+            });
             if (mode === 'create') {
                 document.getElementById('modalTitle').innerText = 'Nueva Instalación';
                 form.action = '/crear_instalacion';
