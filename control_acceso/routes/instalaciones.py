@@ -1,19 +1,38 @@
 import os
 from datetime import datetime
-from zoneinfo import ZoneInfo
 
 from flask import Blueprint, current_app, flash, jsonify, redirect, render_template, request, session, url_for
 from werkzeug.utils import secure_filename
 
+from ..clock import hora_actual
 from ..extensions import db
-from ..models import Instalacion, Reserva
+from ..models import ROLES_USUARIO, Instalacion, Reserva
+from ..notifications import describir_reserva, notificar
 
 bp = Blueprint('instalaciones', __name__)
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp'}
+ESTADOS_OPERATIVOS = ('activo', 'mantenimiento', 'fuera_servicio')
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def read_roles(form):
+    roles = form.getlist('roles_permitidos')
+    if not roles or not set(roles) <= set(ROLES_USUARIO):
+        return None, 'Error: Selecciona al menos un rol válido'
+    return (None if set(roles) == set(ROLES_USUARIO) else ','.join(roles)), None
+
+def notify_affected_reservations(inst):
+    hoy = hora_actual().date()
+    afectadas = Reserva.query.filter(
+        Reserva.instalacion_id == inst.id,
+        Reserva.estado == 'activa',
+        Reserva.fecha_reserva >= hoy
+    ).all()
+    estado = inst.estado.replace('_', ' ')
+    for reserva in afectadas:
+        notificar(reserva.usuario, f'La instalación pasó a {estado}; afecta tu reserva: {describir_reserva(reserva)}.')
 
 @bp.route('/admin_instalaciones')
 def admin_instalaciones():
@@ -45,8 +64,19 @@ def editar_instalacion(id):
     if session.get('role') != 'admin': return redirect(url_for('auth.login'))
     inst = Instalacion.query.get_or_404(id)
     
+    estado = request.form.get('estado')
+    roles_permitidos, error = read_roles(request.form)
+    if estado not in ESTADOS_OPERATIVOS:
+        error = 'Error: Estado inválido'
+    if error:
+        flash(error, 'error')
+        return redirect(url_for('instalaciones.admin_instalaciones'))
+
+    deja_de_operar = inst.estado == 'activo' and estado != 'activo'
     inst.nombre = request.form.get('nombre')
     inst.descripcion = request.form.get('descripcion')
+    inst.estado = estado
+    inst.roles_permitidos = roles_permitidos
     
     file = request.files.get('imagen')
     if file and allowed_file(file.filename):
@@ -60,6 +90,8 @@ def editar_instalacion(id):
         inst.imagen = filename
         
     db.session.commit()
+    if deja_de_operar:
+        notify_affected_reservations(inst)
     flash('Instalación actualizada', 'success')
     return redirect(url_for('instalaciones.admin_instalaciones'))
 
@@ -71,7 +103,7 @@ def eliminar_instalacion(id):
     inst = Instalacion.query.get_or_404(id)
 
     try:
-        hoy = datetime.now(ZoneInfo('America/Bogota')).date()
+        hoy = hora_actual().date()
         reservas_futuras = Reserva.query.filter(
             Reserva.instalacion_id == id,
             Reserva.estado == 'activa',

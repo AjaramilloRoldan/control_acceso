@@ -1,11 +1,9 @@
-from datetime import datetime
-from zoneinfo import ZoneInfo
-
 import mysql.connector
 from flask import Blueprint, current_app, jsonify, request
 from sqlalchemy.exc import SQLAlchemyError
 
 from .. import database
+from ..clock import hora_actual
 from ..access import evaluate_access
 from ..extensions import csrf, db, limiter
 from ..metrics import TIEMPO_LECTURA_MAXIMO_MS
@@ -42,8 +40,7 @@ def validar_acceso():
     if not isinstance(tiempo_reconexion_wifi, int) or tiempo_reconexion_wifi < 0:
         tiempo_reconexion_wifi = None
 
-    # --- LÓGICA DE TIEMPO AJUSTADA PARA COMPATIBILIDAD CON WINDOWS (COLOMBIA) ---
-    ahora = datetime.now(ZoneInfo('America/Bogota')).replace(tzinfo=None)
+    ahora = hora_actual()
 
     try:
         instalacion = db.session.get(Instalacion, dispositivo.instalacion_id)

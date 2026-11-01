@@ -112,6 +112,7 @@ Para instalaciones existentes, agregar también el modelo de datos y las columna
 ```bash
 python migrate_modelo.py
 python migrate_reservas.py
+python migrate_notificaciones.py
 ```
 
 ### 5. Ejecutar la Aplicación
@@ -168,11 +169,14 @@ control_acceso/
 ├── control_acceso/             # Paquete de la aplicación
 │   ├── __init__.py             # create_app y cabeceras de seguridad
 │   ├── config.py               # Variables de entorno
+│   ├── clock.py                # Hora de referencia (America/Bogota)
 │   ├── database.py             # Conexión directa a MySQL
 │   ├── extensions.py           # SQLAlchemy, CSRF y rate limiting
 │   ├── models.py               # Modelos de datos
 │   ├── access.py               # Reglas de autorización de acceso
 │   ├── reservations.py         # Reglas de reservas y programación recurrente
+│   ├── notifications.py        # Bandeja y correo de notificaciones
+│   ├── reports.py              # Reportes y exportación CSV
 │   ├── metrics.py              # Cálculo de métricas
 │   ├── security.py             # Contraseñas, tokens y log de seguridad
 │   ├── validators.py           # Validación de inputs
