@@ -108,6 +108,12 @@ python migrate_passwords.py
 
 **IMPORTANTE:** Haz backup de tu base de datos antes de migrar.
 
+Para instalaciones existentes, agregar también el modelo de datos y las columnas de reservas:
+```bash
+python migrate_modelo.py
+python migrate_reservas.py
+```
+
 ### 5. Ejecutar la Aplicación
 
 ```bash
@@ -166,6 +172,7 @@ control_acceso/
 │   ├── extensions.py           # SQLAlchemy, CSRF y rate limiting
 │   ├── models.py               # Modelos de datos
 │   ├── access.py               # Reglas de autorización de acceso
+│   ├── reservations.py         # Reglas de reservas y programación recurrente
 │   ├── metrics.py              # Cálculo de métricas
 │   ├── security.py             # Contraseñas, tokens y log de seguridad
 │   ├── validators.py           # Validación de inputs

@@ -15,19 +15,22 @@ def evaluate_access(uid, instalacion, ahora):
         return user, 'TARJETA_REVOCADA'
     if user.estado != 'activo':
         return user, 'USUARIO_INACTIVO'
-    if instalacion.estado != 'activo':
+    if instalacion.estado not in ('activo', 'mantenimiento'):
         return user, 'ESPACIO_NO_OPERATIVO'
     if user.rol not in instalacion.roles_autorizados:
         return user, 'ROL_NO_AUTORIZADO'
 
     fin_del_dia = ahora.replace(hour=23, minute=59, second=59)
     apertura = min(ahora + timedelta(minutes=MARGEN_ACCESO_MINUTOS), fin_del_dia).time()
-    reserva = Reserva.query.filter(
+    reservas = Reserva.query.filter(
         Reserva.user_id == user.id,
         Reserva.instalacion_id == instalacion.id,
         Reserva.fecha_reserva == ahora.date(),
         Reserva.hora_inicio <= apertura,
         Reserva.hora_fin > ahora.time(),
         Reserva.estado == 'activa'
-    ).first()
-    return user, None if reserva else 'SIN_RESERVA_VIGENTE'
+    )
+    if instalacion.estado == 'mantenimiento':
+        franja = reservas.filter(Reserva.tipo == 'franja_operativa').first()
+        return user, None if franja else 'ESPACIO_NO_OPERATIVO'
+    return user, None if reservas.first() else 'SIN_RESERVA_VIGENTE'
