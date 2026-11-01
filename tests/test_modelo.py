@@ -217,4 +217,4 @@ def test_retired_installation_rejects_new_reservations(client):
     login_as(client, 'user', 11)
     manana = (datetime.now() + timedelta(days=1)).date().isoformat()
     response = client.post('/reservar', data={'instalacion_id': 1, 'fecha': manana, 'hora_inicio': '10:00', 'hora_fin': '11:00'})
-    assert response.status_code == 400
+    assert response.status_code == 409

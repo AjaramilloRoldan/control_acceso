@@ -50,6 +50,7 @@
             <h1 class="text-2xl md:text-3xl font-bold text-white tracking-tight">Bienvenido, {{ nombre_usuario }}</h1>
             <p class="text-sm text-emerald-400 mt-1 font-medium">Gestión Profesional de Reservas</p>
         </div>
+        <a href="/mis_reservas" class="px-6 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-sm font-bold text-emerald-400">Mis reservas</a>
         <a href="/logout" class="px-6 py-2 bg-red-500/10 border border-red-500/20 rounded-full text-sm font-bold text-red-400 hover:bg-red-500 hover:text-white transition-all">🚪 Cerrar Sesión</a>
     </header>
 
@@ -68,6 +69,9 @@
                         <p class="text-[10px] text-slate-500 uppercase font-bold tracking-widest mt-1">{{ res.fecha_reserva.strftime('%d %B, %Y') }}</p>
                         <p class="text-sm text-emerald-400 font-semibold mt-1">{{ res.hora_inicio.strftime('%H:%M') }} — {{ res.hora_fin.strftime('%H:%M') }}</p>
                     </div>
+                    {% if gestiona_reservas %}
+                    <div class="flex items-center gap-2">
+                    <button onclick="openBookingModal('{{ res.instalacion_id }}', '{{ res.instalacion.nombre }}', '{{ res.id }}')" class="bg-slate-800 text-slate-300 px-3 py-3 rounded-xl text-xs font-bold hover:bg-emerald-500 hover:text-slate-950 transition-all shadow-lg">Modificar</button>
                     <div class="relative tooltip-trigger">
                         <span class="tooltip opacity-0 transition-all absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] py-1 px-3 rounded-md pointer-events-none whitespace-nowrap border border-white/10">Eliminar Reserva</span>
                         <button onclick="confirmDelete('{{ res.id }}')" class="bg-slate-800 text-slate-400 p-3 rounded-xl hover:bg-red-500 hover:text-white transition-all shadow-lg">
@@ -76,6 +80,8 @@
                             </svg>
                         </button>
                     </div>
+                    </div>
+                    {% endif %}
                 </div>
                 {% endfor %}
             </div>
@@ -92,9 +98,13 @@
                 </div>
                 <div class="p-8">
                     <h3 class="text-2xl font-bold text-white mb-3">{{ inst.nombre }}</h3>
+                    {% if inst.id in reservables %}
                     <button onclick="openBookingModal('{{ inst.id }}', '{{ inst.nombre }}')" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-4 rounded-2xl shadow-xl active:scale-95 transition-all">
                         Reservar Espacio
                     </button>
+                    {% else %}
+                    <p class="text-sm text-slate-500">Tu rol no reserva este espacio.</p>
+                    {% endif %}
                 </div>
             </article>
             {% endfor %}
@@ -108,7 +118,7 @@
                 <button onclick="closeModal()" class="text-slate-400 hover:text-white text-2xl">✕</button>
             </div>
             
-            <form action="/reservar" method="POST" class="p-6 grid grid-cols-1 md:grid-cols-12 gap-6">
+            <form id="bookingForm" action="/reservar" method="POST" class="p-6 grid grid-cols-1 md:grid-cols-12 gap-6">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                 <input type="hidden" name="instalacion_id" id="modal_inst_id">
                 <input type="hidden" name="hora_inicio" id="input_hora_inicio">
@@ -131,10 +141,14 @@
                         <div id="endContainer" class="grid grid-cols-4 gap-2 max-h-[140px] overflow-y-auto pr-2 custom-scrollbar"></div>
                     </div>
 
+                    <input type="text" name="motivo" id="input_motivo" maxlength="200" placeholder="Motivo (opcional)" class="w-full px-4 py-3 bg-slate-900/40 border border-white/5 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500">
+
                     <div id="selectionSummary" class="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4 hidden">
                         <p class="text-[9px] text-emerald-400 font-bold uppercase tracking-widest">RANGO SELECCIONADO:</p>
                         <span id="selectedLabel" class="text-xl text-white font-black tracking-tight"></span>
                     </div>
+
+                    <p id="bookingError" class="hidden text-sm text-red-400"></p>
 
                     <button type="submit" id="btnSubmit" disabled class="w-full bg-emerald-500 text-slate-950 font-bold py-4 rounded-xl opacity-50 cursor-not-allowed transition-all text-sm uppercase tracking-widest">
                         Confirmar Reserva
@@ -161,12 +175,17 @@
         let startHour = null;
         let endHour = null;
         let currentBusySlots = [];
-        const OPEN_TIME = 8;
+        let editingId = null;
+        const OPEN_TIME = 6;
         const CLOSE_TIME = 22;
 
-        function openBookingModal(id, nombre) {
+        function openBookingModal(id, nombre, reservaId = null) {
+            editingId = reservaId;
+            document.getElementById('bookingForm').setAttribute('action', reservaId ? `/reservas/${reservaId}` : '/reservar');
+            document.getElementById('input_motivo').classList.toggle('hidden', Boolean(reservaId));
+            document.getElementById('bookingError').classList.add('hidden');
             document.getElementById('modal_inst_id').value = id;
-            document.getElementById('modalTitle').innerText = `Reserva en ${nombre}`;
+            document.getElementById('modalTitle').innerText = `${reservaId ? 'Modificar reserva' : 'Reserva'} en ${nombre}`;
             document.getElementById('bookingModal').classList.remove('hidden');
             document.body.style.overflow = 'hidden';
             resetSelection();
@@ -177,6 +196,7 @@
                 appendTo: document.getElementById('calendarContainer'),
                 locale: "es",
                 minDate: "today",
+                disable: [date => date.getDay() === 0],
                 onChange: (selectedDates, dateStr) => fetchDisponibilidad(id, dateStr)
             });
         }
@@ -185,7 +205,8 @@
             const container = document.getElementById('startContainer');
             container.innerHTML = '<div class="col-span-4 text-center py-4 text-emerald-500 animate-pulse text-[10px] font-bold">CARGANDO...</div>';
             
-            const response = await fetch(`/api/disponibilidad/${instId}/${fecha}`);
+            const excluir = editingId ? `?excluir=${editingId}` : '';
+            const response = await fetch(`/api/disponibilidad/${instId}/${fecha}${excluir}`);
             const busy = await response.json();
             
             currentBusySlots = [];
@@ -295,9 +316,24 @@
                     const badge = document.getElementById('successBadge');
                     badge.classList.remove('hidden');
                     setTimeout(() => { window.location.reload(); }, 2000);
+                } else {
+                    alert((await response.json()).error);
                 }
             }
         }
+
+        document.getElementById('bookingForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const form = event.target;
+            const response = await fetch(form.getAttribute('action'), { method: 'POST', body: new FormData(form) });
+            if (response.ok) {
+                window.location.reload();
+                return;
+            }
+            const error = document.getElementById('bookingError');
+            error.innerText = (await response.json()).error;
+            error.classList.remove('hidden');
+        });
     </script>
 </body>
 </html>
