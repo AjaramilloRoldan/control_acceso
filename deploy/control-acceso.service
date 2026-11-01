@@ -1,0 +1,14 @@
+[Unit]
+Description=Sistema de control de acceso RFID
+After=network.target mysql.service
+
+[Service]
+User=control_acceso
+WorkingDirectory=/opt/control_acceso
+ExecStart=/opt/control_acceso/venv/bin/gunicorn -c deploy/gunicorn.conf.py app:app
+Restart=on-failure
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,6 +1,7 @@
 import os
 
 from flask import Flask
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from . import config
 from .extensions import csrf, db, limiter
@@ -24,6 +25,10 @@ def create_app():
     app.config['UPLOAD_FOLDER'] = config.UPLOAD_FOLDER
     app.config['SQLALCHEMY_DATABASE_URI'] = config.database_uri()
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+    if config.behind_https_proxy():
+        app.config['SESSION_COOKIE_SECURE'] = True
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
 
     os.makedirs(config.UPLOAD_FOLDER, exist_ok=True)
     configure_security_log()
