@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Lectores - Control Acceso</title>
+    <link rel="icon" href="/static/pestana.png" />
+    <script src="https://cdn.jsdelivr.net/npm/tailwindcss-cdn@3.4.10/tailwindcss.js"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: { fontFamily: { sans: ["Plus Jakarta Sans", "sans-serif"] } },
+        },
+      };
+    </script>
+  </head>
+  <body class="bg-[#0f172a] text-slate-200 min-h-screen font-sans">
+    <main class="max-w-4xl mx-auto px-4 py-10">
+      <header class="flex items-center justify-between gap-4 mb-8">
+        <div>
+          <h1 class="text-3xl font-black text-white">Lectores</h1>
+          <p class="text-slate-400 text-sm mt-1">
+            Dispositivos autorizados para validar accesos.
+          </p>
+        </div>
+        <a
+          href="/dashboard"
+          class="px-6 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-sm font-bold text-emerald-400 shrink-0"
+          >Volver al panel</a
+        >
+      </header>
+
+      {% if error %}
+      <p
+        class="mb-6 p-4 rounded-xl text-sm border bg-red-500/10 border-red-500/20 text-red-400"
+      >
+        {{ error }}
+      </p>
+      {% endif %} {% for mensaje in get_flashed_messages() %}
+      <p
+        class="mb-6 p-4 rounded-xl text-sm border bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+      >
+        {{ mensaje }}
+      </p>
+      {% endfor %} {% if token %}
+      <section
+        class="mb-8 p-6 rounded-2xl border border-amber-500/30 bg-amber-500/10"
+      >
+        <h2 class="text-lg font-bold text-white mb-2">
+          Copia este token ahora
+        </h2>
+        <p class="text-sm text-amber-200 mb-4">
+          No se volverá a mostrar. Va en <code>DEVICE_TOKEN</code> de
+          <code>secrets.h</code>, y el firmware debe usar
+          <code>INSTALACION_ID = {{ token_instalacion }}</code>. Si recargas
+          esta página se registrará otro lector.
+        </p>
+        <code
+          class="block p-4 rounded-xl bg-black/30 text-emerald-300 text-sm break-all select-all"
+          >{{ token }}</code
+        >
+      </section>
+      {% endif %}
+
+      <section
+        class="mb-8 p-6 rounded-2xl border border-white/5 bg-slate-800/40"
+      >
+        <h2 class="text-lg font-bold text-white mb-4">Registrar lector</h2>
+        <form
+          method="POST"
+          class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end"
+        >
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <div>
+            <label
+              for="id_espacios"
+              class="block text-xs font-bold text-slate-400 mb-2"
+              >Espacio</label
+            >
+            <select
+              id="id_espacios"
+              name="id_espacios"
+              required
+              class="w-full px-4 py-3 bg-slate-900 border border-white/10 rounded-xl text-white"
+            >
+              {% for espacio in espacios %}
+              <option value="{{ espacio.id }}">{{ espacio.nombre }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label
+              for="descripcion"
+              class="block text-xs font-bold text-slate-400 mb-2"
+              >Ubicación del lector</label
+            >
+            <input
+              id="descripcion"
+              name="descripcion"
+              required
+              maxlength="100"
+              class="w-full px-4 py-3 bg-slate-900 border border-white/10 rounded-xl text-white"
+              placeholder="Puerta principal"
+            />
+          </div>
+          <button
+            type="submit"
+            class="px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-white font-bold rounded-xl transition-colors"
+          >
+            Registrar
+          </button>
+        </form>
+      </section>
+
+      <section
+        class="rounded-2xl border border-white/5 bg-slate-800/40 overflow-x-auto"
+      >
+        <table class="w-full text-sm">
+          <thead>
+            <tr
+              class="text-left text-xs text-slate-400 border-b border-white/10"
+            >
+              <th class="p-4">Espacio</th>
+              <th class="p-4">Ubicación</th>
+              <th class="p-4">Estado</th>
+              <th class="p-4">Última conexión</th>
+              <th class="p-4"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for lector, espacio in lectores %}
+            <tr class="border-b border-white/5 last:border-0">
+              <td class="p-4 text-white font-semibold">{{ espacio }}</td>
+              <td class="p-4">{{ lector.descripcion or 'Sin descripción' }}</td>
+              <td
+                class="p-4 {{ 'text-emerald-400' if lector.estado == 'activo' else 'text-red-400' }}"
+              >
+                {{ lector.estado | capitalize }}
+              </td>
+              <td class="p-4 text-slate-400">
+                {{ lector.ultima_conexion.strftime('%Y-%m-%d %H:%M') if
+                lector.ultima_conexion else 'Sin conexiones' }}
+              </td>
+              <td class="p-4 text-right">
+                {% if lector.estado == 'activo' %}
+                <form
+                  method="POST"
+                  action="{{ url_for('dispositivos.revocar_dispositivo', id=lector.id) }}"
+                  onsubmit="
+                    return confirm(
+                      '¿Revocar este lector? Dejará de validar accesos.',
+                    );
+                  "
+                >
+                  <input
+                    type="hidden"
+                    name="csrf_token"
+                    value="{{ csrf_token() }}"
+                  />
+                  <button
+                    type="submit"
+                    class="px-3 py-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-xs font-bold"
+                  >
+                    Revocar
+                  </button>
+                </form>
+                {% endif %}
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="5" class="p-8 text-center text-slate-500">
+                No hay lectores registrados
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+    </main>
+  </body>
+</html>
