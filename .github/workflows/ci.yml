@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt pytest==8.3.5 pyflakes==3.3.2
+      - name: Análisis estático
+        run: python -m pyflakes app.py respaldar_base.py deploy/gunicorn.conf.py control_acceso
+      - name: Pruebas
+        run: python -m pytest -q
+      - name: Configuración de Gunicorn
+        run: gunicorn --check-config -c deploy/gunicorn.conf.py app:app
+        env:
+          SECRET_KEY: solo-para-comprobar-el-arranque
+          DATABASE_URL: sqlite:///ci.db

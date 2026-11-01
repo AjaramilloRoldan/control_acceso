@@ -1,0 +1,33 @@
+# Reemplazar control-acceso.example.edu.co por el dominio real.
+server {
+    listen 80;
+    server_name control-acceso.example.edu.co;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name control-acceso.example.edu.co;
+
+    ssl_certificate /etc/letsencrypt/live/control-acceso.example.edu.co/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/control-acceso.example.edu.co/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_session_cache shared:SSL:10m;
+
+    client_max_body_size 5m;
+
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}

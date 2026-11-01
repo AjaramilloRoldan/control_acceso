@@ -19,6 +19,9 @@ if hasattr(time, 'tzset'):
 
 UPLOAD_FOLDER = 'static/uploads/instalaciones'
 
+def behind_https_proxy():
+    return os.getenv('BEHIND_HTTPS_PROXY', 'False').lower() == 'true'
+
 def database_uri():
     db_host = os.getenv('DB_HOST', 'localhost')
     db_user = os.getenv('DB_USER', 'root')
