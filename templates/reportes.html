@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Reportes - Control Acceso</title>
+    <link rel="icon" href="/static/pestana.png">
+    <script src="https://cdn.jsdelivr.net/npm/tailwindcss-cdn@3.4.10/tailwindcss.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .campo { margin-top: 0.5rem; width: 100%; padding: 0.75rem 1rem; background: #0f172a; border: 1px solid #334155; border-radius: 0.75rem; color: #fff; }
+        .barras { display: flex; align-items: flex-end; gap: 2px; height: 180px; border-bottom: 1px solid #334155; min-width: fit-content; }
+        .columna { position: relative; flex: 1 0 8px; min-width: 8px; height: 100%; display: flex; align-items: flex-end; }
+        .columna:hover .barra { background: #34d399; }
+        .barra { width: 100%; background: #10b981; border-radius: 4px 4px 0 0; }
+        .columna:hover .dato { display: block; }
+        .dato { display: none; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); white-space: nowrap; z-index: 10; padding: 0.25rem 0.5rem; background: #1e293b; border: 1px solid #334155; border-radius: 0.5rem; font-size: 0.75rem; color: #fff; pointer-events: none; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-200 min-h-screen">
+    <header class="border-b border-white/5 px-6 py-6 flex items-center justify-between gap-4">
+        <h1 class="text-2xl font-bold text-white tracking-tight">Reportes</h1>
+        <a href="/dashboard" class="px-6 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-sm font-bold text-emerald-400">Volver al panel</a>
+    </header>
+
+    <main class="max-w-6xl mx-auto p-6 md:p-10">
+        <nav class="flex flex-wrap gap-2 mb-8">
+            {% for valor, etiqueta in tipos.items() %}
+            <a href="/reportes?tipo={{ valor }}" class="px-5 py-2 rounded-full text-sm font-bold border {{ 'bg-emerald-500 text-slate-950 border-emerald-500' if valor == tipo else 'border-slate-700 text-slate-400 hover:text-white' }}">{{ etiqueta }}</a>
+            {% endfor %}
+        </nav>
+
+        <form method="get" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <input type="hidden" name="tipo" value="{{ tipo }}">
+            {% if tipo != 'denegados' %}
+            <label class="text-xs font-bold text-slate-400">Espacio
+                <select name="id_espacios" class="campo">
+                    {% if tipo != 'ocupacion' %}<option value="">Todos</option>{% endif %}
+                    {% for espacio in espacios %}
+                    <option value="{{ espacio.id }}"{{ ' selected' if espacio.id == instalacion_id }}>{{ espacio.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            {% endif %}
+            <label class="text-xs font-bold text-slate-400">Desde
+                <input type="date" name="fecha_desde" value="{{ fecha_desde }}" class="campo">
+            </label>
+            <label class="text-xs font-bold text-slate-400">Hasta
+                <input type="date" name="fecha_hasta" value="{{ fecha_hasta }}" class="campo">
+            </label>
+            <div class="flex items-end gap-2">
+                <button type="submit" class="flex-1 px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl">Generar</button>
+                <button type="submit" name="formato" value="csv" class="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl">Exportar</button>
+            </div>
+        </form>
+
+        {% if error %}
+        <p class="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400">{{ error }}</p>
+        {% endif %}
+
+        {% if reporte %}
+        {% if reporte.grafico and reporte.grafico.puntos %}
+        <section class="mb-8 bg-slate-900/40 border border-white/5 rounded-2xl p-6">
+            <h2 class="text-sm font-bold text-white mb-8">{{ reporte.grafico.titulo }}</h2>
+            <div class="overflow-x-auto pt-8">
+                <div class="barras">
+                    {% for etiqueta, valor, detalle in reporte.grafico.puntos %}
+                    <div class="columna" title="{{ detalle }}">
+                        <span class="dato">{{ detalle }}</span>
+                        <div class="barra" style="height: {{ (valor / reporte.grafico.maximo * 100) if reporte.grafico.maximo else 0 }}%"></div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="flex justify-between text-xs text-slate-500 mt-2">
+                <span>{{ reporte.grafico.puntos[0][0] }}</span>
+                <span>{{ reporte.grafico.puntos[-1][0] }}</span>
+            </div>
+        </section>
+        {% endif %}
+
+        {% for tabla in reporte.tablas %}
+        <section class="mb-8">
+            <h2 class="text-lg font-bold text-white mb-3">{{ tabla.titulo }}</h2>
+            <div class="overflow-x-auto bg-slate-900/40 border border-white/5 rounded-2xl">
+                <table class="w-full text-sm text-left">
+                    <thead class="text-xs uppercase tracking-widest text-slate-500">
+                        <tr>{% for columna in tabla.columnas %}<th class="p-4">{{ columna }}</th>{% endfor %}</tr>
+                    </thead>
+                    <tbody>
+                        {% for fila in tabla.filas[:limite_filas] %}
+                        <tr class="border-t border-white/5">{% for celda in fila %}<td class="p-4">{{ celda }}</td>{% endfor %}</tr>
+                        {% else %}
+                        <tr><td colspan="{{ tabla.columnas|length }}" class="p-8 text-center text-slate-500">Sin datos en este periodo.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% if tabla.filas|length > limite_filas %}
+            <p class="mt-2 text-xs text-slate-500">Se muestran {{ limite_filas }} de {{ tabla.filas|length }} filas; la exportación las incluye todas.</p>
+            {% endif %}
+        </section>
+        {% endfor %}
+        {% endif %}
+    </main>
+</body>
+</html>

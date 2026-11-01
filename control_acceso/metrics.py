@@ -2,7 +2,8 @@ import logging
 import math
 import os
 from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
+
+from .clock import hora_actual
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +22,7 @@ def calcular_disponibilidad(ruta=HEALTH_LOG, dias=30, ahora=None):
     """Porcentaje de sondeos exitosos de /health en horario lunes a sábado de 06:00 a 22:00"""
     if not os.path.exists(ruta):
         return None
-    ahora = ahora or datetime.now(ZoneInfo('America/Bogota')).replace(tzinfo=None)
+    ahora = ahora or hora_actual()
     limite = ahora - timedelta(days=dias)
     exitosos = total = 0
     with open(ruta, encoding='utf-8') as archivo:

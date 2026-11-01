@@ -13,8 +13,8 @@ def require_env(name):
     return value
 
 # Configuración de Zona Horaria para Colombia
-os.environ['TZ'] = 'America/Bogota'
 if hasattr(time, 'tzset'):
+    os.environ['TZ'] = 'America/Bogota'
     time.tzset()
 
 UPLOAD_FOLDER = 'static/uploads/instalaciones'
