@@ -5,6 +5,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 from . import config
 from .extensions import csrf, db, limiter
+from .formatos import fecha_hora_local, fecha_local
 from .routes import register_blueprints
 from .security import configure_security_log
 
@@ -24,6 +25,8 @@ def create_app():
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
     app.config['PERMANENT_SESSION_LIFETIME'] = config.DURACION_SESION
     app.config['SESSION_REFRESH_EACH_REQUEST'] = False
+    app.add_template_filter(fecha_local, 'fecha')
+    app.add_template_filter(fecha_hora_local, 'fecha_hora')
     app.config['UPLOAD_FOLDER'] = config.UPLOAD_FOLDER
     app.config['SQLALCHEMY_DATABASE_URI'] = config.database_uri()
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False

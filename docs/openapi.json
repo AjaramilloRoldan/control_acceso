@@ -1,0 +1,499 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Control de acceso RFID - Universidad Católica de Pereira",
+    "version": "1.0.0",
+    "description": "Rutas JSON del sistema. Las rutas de sesión son para la interfaz web; las rutas /reservar, /reservas y /cancelar_reserva reciben formulario y exigen el token CSRF de la sesión."
+  },
+  "servers": [{ "url": "/" }],
+  "paths": {
+    "/historial": {
+      "post": {
+        "summary": "Valida una lectura RFID y la registra en la bitácora",
+        "description": "Ruta del firmware. No sigue el prefijo /api por compatibilidad con los lectores instalados.",
+        "security": [{ "dispositivo": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/Lectura" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/DecisionConRegistro" },
+          "400": { "$ref": "#/components/responses/Decision" },
+          "401": { "$ref": "#/components/responses/Decision" },
+          "403": { "$ref": "#/components/responses/Decision" },
+          "500": { "$ref": "#/components/responses/Decision" }
+        }
+      }
+    },
+    "/api/metricas_acceso": {
+      "post": {
+        "summary": "Registra el tiempo de lectura medido por el firmware",
+        "security": [{ "dispositivo": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/MetricaAcceso" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Métrica registrada",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Confirmacion" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/Error" },
+          "401": { "$ref": "#/components/responses/Error" },
+          "404": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Informa si el sistema alcanza la base de datos",
+        "security": [],
+        "responses": {
+          "200": { "$ref": "#/components/responses/Salud" },
+          "503": { "$ref": "#/components/responses/Salud" }
+        }
+      }
+    },
+    "/api/stats": {
+      "get": {
+        "summary": "Estadísticas y métricas del panel",
+        "security": [{ "sesion": [] }],
+        "responses": {
+          "200": {
+            "description": "Datos de los gráficos",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Estadisticas" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/api/denegados": {
+      "get": {
+        "summary": "Últimos 50 accesos denegados con UID",
+        "security": [{ "sesion": [] }],
+        "responses": {
+          "200": {
+            "description": "Accesos denegados",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ListaDenegados" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/api/monitoreo": {
+      "get": {
+        "summary": "Estado del día para el monitoreo en tiempo real",
+        "security": [{ "sesion": [] }],
+        "responses": {
+          "200": {
+            "description": "Estado actual",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Monitoreo" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/api/disponibilidad/{inst_id}/{fecha}": {
+      "get": {
+        "summary": "Franjas reservadas de un espacio en una fecha",
+        "security": [{ "sesion": [] }],
+        "parameters": [
+          {
+            "name": "inst_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          },
+          {
+            "name": "fecha",
+            "in": "path",
+            "required": true,
+            "description": "Fecha AAAA-MM-DD",
+            "schema": { "type": "string", "format": "date" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Franjas ocupadas",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Franja" }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/Error" },
+          "401": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/reservar": {
+      "post": {
+        "summary": "Crea una reserva individual",
+        "security": [{ "sesion": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": { "$ref": "#/components/schemas/NuevaReserva" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "$ref": "#/components/responses/Reserva" },
+          "4XX": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/reservas/{reserva_id}": {
+      "post": {
+        "summary": "Modifica una reserva",
+        "security": [{ "sesion": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ReservaId" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": { "$ref": "#/components/schemas/CambioReserva" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/Reserva" },
+          "4XX": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/cancelar_reserva/{reserva_id}": {
+      "post": {
+        "summary": "Cancela una reserva",
+        "security": [{ "sesion": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ReservaId" }],
+        "responses": {
+          "200": { "$ref": "#/components/responses/Reserva" },
+          "4XX": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "dispositivo": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Device-Token"
+      },
+      "sesion": { "type": "apiKey", "in": "cookie", "name": "session" }
+    },
+    "parameters": {
+      "ReservaId": {
+        "name": "reserva_id",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "integer" }
+      }
+    },
+    "responses": {
+      "Decision": {
+        "description": "Decisión de acceso",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Decision" }
+          }
+        }
+      },
+      "DecisionConRegistro": {
+        "description": "Acceso autorizado",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/DecisionConRegistro" }
+          }
+        }
+      },
+      "Error": {
+        "description": "Solicitud rechazada",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      },
+      "Reserva": {
+        "description": "Reserva afectada",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ReservaId" }
+          }
+        }
+      },
+      "Salud": {
+        "description": "Estado del servicio",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Salud" }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "Lectura": {
+        "type": "object",
+        "required": ["uid", "instalacion_id"],
+        "properties": {
+          "uid": {
+            "type": "string",
+            "description": "UID de la tarjeta en hexadecimal"
+          },
+          "instalacion_id": { "type": "integer" },
+          "tiempo_reconexion_wifi": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Milisegundos"
+          }
+        }
+      },
+      "Decision": {
+        "type": "object",
+        "required": ["message", "access"],
+        "properties": {
+          "message": { "type": "string" },
+          "access": { "type": "boolean" },
+          "motivo": { "type": "string", "nullable": true },
+          "log_id": { "type": "integer" }
+        }
+      },
+      "DecisionConRegistro": {
+        "type": "object",
+        "required": ["message", "access", "motivo", "log_id"],
+        "properties": {
+          "message": { "type": "string" },
+          "access": { "type": "boolean" },
+          "motivo": { "type": "string", "nullable": true },
+          "log_id": { "type": "integer" }
+        }
+      },
+      "MetricaAcceso": {
+        "type": "object",
+        "required": ["log_id", "tiempo_lectura"],
+        "properties": {
+          "log_id": { "type": "integer" },
+          "tiempo_lectura": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Milisegundos"
+          }
+        }
+      },
+      "Confirmacion": {
+        "type": "object",
+        "required": ["ok"],
+        "properties": { "ok": { "type": "boolean" } }
+      },
+      "Error": {
+        "type": "object",
+        "required": ["error"],
+        "properties": { "error": { "type": "string" } }
+      },
+      "Salud": {
+        "type": "object",
+        "required": ["status"],
+        "properties": {
+          "status": { "type": "string", "enum": ["ok", "error"] }
+        }
+      },
+      "ReservaId": {
+        "type": "object",
+        "required": ["id"],
+        "properties": { "id": { "type": "integer" } }
+      },
+      "Franja": {
+        "type": "object",
+        "required": ["from", "to"],
+        "properties": {
+          "from": { "type": "string" },
+          "to": { "type": "string" }
+        }
+      },
+      "NuevaReserva": {
+        "type": "object",
+        "required": [
+          "instalacion_id",
+          "fecha",
+          "hora_inicio",
+          "hora_fin",
+          "csrf_token"
+        ],
+        "properties": {
+          "instalacion_id": { "type": "integer" },
+          "fecha": { "type": "string", "format": "date" },
+          "hora_inicio": { "type": "string" },
+          "hora_fin": { "type": "string" },
+          "motivo": { "type": "string", "maxLength": 200 },
+          "csrf_token": { "type": "string" }
+        }
+      },
+      "CambioReserva": {
+        "type": "object",
+        "required": ["fecha", "hora_inicio", "hora_fin", "csrf_token"],
+        "properties": {
+          "fecha": { "type": "string", "format": "date" },
+          "hora_inicio": { "type": "string" },
+          "hora_fin": { "type": "string" },
+          "csrf_token": { "type": "string" }
+        }
+      },
+      "Estadisticas": {
+        "type": "object",
+        "required": [
+          "labels",
+          "autorizados",
+          "denegados",
+          "porcentaje_exito",
+          "inst_names",
+          "inst_counts",
+          "eficiencia_labels",
+          "success_by_inst",
+          "fail_by_inst",
+          "tiempo_lectura_promedio",
+          "tiempo_lectura_p95",
+          "disponibilidad",
+          "tiempo_reconexion_wifi"
+        ],
+        "properties": {
+          "labels": { "type": "array", "items": { "type": "string" } },
+          "autorizados": { "type": "array", "items": { "type": "integer" } },
+          "denegados": { "type": "array", "items": { "type": "integer" } },
+          "porcentaje_exito": { "type": "number", "nullable": true },
+          "inst_names": { "type": "array", "items": { "type": "string" } },
+          "inst_counts": { "type": "array", "items": { "type": "integer" } },
+          "eficiencia_labels": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "success_by_inst": {
+            "type": "array",
+            "items": { "type": "integer" }
+          },
+          "fail_by_inst": { "type": "array", "items": { "type": "integer" } },
+          "tiempo_lectura_promedio": { "type": "number", "nullable": true },
+          "tiempo_lectura_p95": { "type": "number", "nullable": true },
+          "disponibilidad": { "type": "number", "nullable": true },
+          "tiempo_reconexion_wifi": { "type": "number", "nullable": true }
+        }
+      },
+      "ListaDenegados": {
+        "type": "object",
+        "required": ["denegados"],
+        "properties": {
+          "denegados": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "rfid_uid", "fecha", "usuario"],
+              "properties": {
+                "id": { "type": "integer" },
+                "rfid_uid": { "type": "string" },
+                "fecha": {
+                  "type": "string",
+                  "description": "DD/MM/AAAA HH:MM:SS"
+                },
+                "usuario": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      "Monitoreo": {
+        "type": "object",
+        "required": [
+          "autorizados_hoy",
+          "denegados_hoy",
+          "ultimos_accesos",
+          "reservas_hoy",
+          "dispositivos"
+        ],
+        "properties": {
+          "autorizados_hoy": { "type": "integer" },
+          "denegados_hoy": { "type": "integer" },
+          "ultimos_accesos": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "fecha",
+                "usuario",
+                "espacio",
+                "autorizado",
+                "motivo"
+              ],
+              "properties": {
+                "fecha": {
+                  "type": "string",
+                  "description": "DD/MM/AAAA HH:MM:SS"
+                },
+                "usuario": { "type": "string" },
+                "espacio": { "type": "string" },
+                "autorizado": { "type": "boolean" },
+                "motivo": { "type": "string" }
+              }
+            }
+          },
+          "reservas_hoy": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["franja", "usuario", "espacio"],
+              "properties": {
+                "franja": { "type": "string" },
+                "usuario": { "type": "string" },
+                "espacio": { "type": "string" }
+              }
+            }
+          },
+          "dispositivos": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["descripcion", "espacio", "ultima_conexion"],
+              "properties": {
+                "descripcion": { "type": "string" },
+                "espacio": { "type": "string" },
+                "ultima_conexion": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "DD/MM/AAAA HH:MM:SS"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

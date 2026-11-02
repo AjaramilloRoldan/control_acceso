@@ -7,6 +7,7 @@ from .. import database
 from ..clock import hora_actual
 from ..extensions import db, limiter
 from ..metrics import ULTIMOS_ACCESOS_METRICAS, calcular_disponibilidad, percentil_95
+from ..formatos import DIAS_SEMANA, fecha_hora_local
 from ..models import AccessLog, Dispositivo, Instalacion, Reserva, User
 from ..reports import FILAS_POR_PAGINA, PeriodoInvalido, consulta_bitacora, reporte_consulta_bitacora, to_csv
 from .reportes import parse_filter_date
@@ -52,7 +53,7 @@ def get_stats():
     for i in range(6, -1, -1):
         fecha_dt = (hora_actual() - timedelta(days=i))
         fecha_str = fecha_dt.strftime('%Y-%m-%d')
-        labels.append(fecha_dt.strftime('%a'))
+        labels.append(DIAS_SEMANA[fecha_dt.weekday()])
         cursor.execute("SELECT COUNT(*) as c FROM access_log WHERE DATE(timestamp) = %s AND success = 1", (fecha_str,))
         autorizados.append(cursor.fetchone()['c'])
         cursor.execute("SELECT COUNT(*) as c FROM access_log WHERE DATE(timestamp) = %s AND success = 0", (fecha_str,))
@@ -122,14 +123,16 @@ def get_denegados():
         LIMIT 50
     """)
     denegados = cursor.fetchall()
-    
+    for denegado in denegados:
+        denegado['fecha'] = fecha_hora_local(denegado['fecha'])
+
     cursor.close()
     conn.close()
     
     return jsonify({"denegados": denegados})
 
 def filas_de_acceso(registros):
-    return [{'fecha': acceso.timestamp.strftime('%Y-%m-%d %H:%M:%S'), 'usuario': usuario or 'No registrado',
+    return [{'fecha': fecha_hora_local(acceso.timestamp), 'usuario': usuario or 'No registrado',
              'espacio': espacio or 'Sin espacio', 'autorizado': acceso.success, 'motivo': acceso.motivo or ''}
             for acceso, usuario, espacio in registros]
 
@@ -155,7 +158,7 @@ def monitoreo():
         "reservas_hoy": [{'franja': f"{reserva.hora_inicio.strftime('%H:%M')} - {reserva.hora_fin.strftime('%H:%M')}",
                           'usuario': usuario, 'espacio': espacio} for reserva, usuario, espacio in reservas],
         "dispositivos": [{'descripcion': lector.descripcion or 'Sin descripción', 'espacio': espacio,
-                          'ultima_conexion': lector.ultima_conexion.strftime('%Y-%m-%d %H:%M:%S') if lector.ultima_conexion else None}
+                          'ultima_conexion': fecha_hora_local(lector.ultima_conexion) if lector.ultima_conexion else None}
                          for lector, espacio in lectores],
     })
 

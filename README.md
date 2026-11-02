@@ -181,6 +181,20 @@ gunzip -c control_acceso_AAAAMMDD_HHMMSS.sql.gz | mysql -u root -p control_acces
 
 Hacer este simulacro cada trimestre y comparar los conteos de filas con la base real.
 
+### Depuración de la Bitácora
+
+La bitácora se conserva 24 meses (RNF-CS-17). Este comando solo informa cuántos registros vencieron:
+
+```bash
+python depurar_bitacora.py
+```
+
+Después de un respaldo, `python depurar_bitacora.py --aplicar` los elimina de forma definitiva. Programarlo una vez al mes junto con los respaldos.
+
+### Rutas JSON
+
+El contrato de las rutas JSON, incluidas las del firmware, está en `docs/openapi.json` (OpenAPI 3, RNF-CS-24). Las pruebas fallan si una ruta `/api/` queda sin documentar.
+
 ## Logs de Seguridad
 
 Los logs de seguridad se almacenan en `logs/security.log`:
@@ -225,6 +239,8 @@ control_acceso/
 ├── deploy/                     # Gunicorn, systemd y Nginx para producción
 ├── registrar_dispositivo.py    # Registro de lectores por consola
 ├── respaldar_base.py           # Respaldo diario con retención
+├── depurar_bitacora.py         # Elimina la bitácora que supera 24 meses
+├── docs/openapi.json           # Contrato de las rutas JSON
 ├── migrate_capacidad.py        # Agrega capacidad y nombre único a los espacios
 ├── migrate_passwords.py        # Script de migración de contraseñas
 ├── requirements.txt            # Dependencias
