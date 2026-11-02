@@ -357,7 +357,7 @@
                 const celdas = [
                     [d.rfid_uid, 'py-3 font-mono text-xs text-amber-400'],
                     [d.usuario, 'py-3 text-slate-300'],
-                    [new Date(d.fecha).toLocaleString('es-ES'), 'py-3 text-slate-500 text-xs'],
+                    [d.fecha, 'py-3 text-slate-500 text-xs'],
                 ];
                 celdas.forEach(([texto, clase]) => {
                     const td = document.createElement('td');

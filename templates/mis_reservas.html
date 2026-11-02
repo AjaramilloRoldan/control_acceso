@@ -49,7 +49,7 @@
                     {% for reserva, estado in reservas %}
                     <tr class="border-t border-white/5">
                         <td class="p-4 text-white font-semibold">{{ reserva.instalacion.nombre }}</td>
-                        <td class="p-4">{{ reserva.fecha_reserva.strftime('%Y-%m-%d') }}</td>
+                        <td class="p-4">{{ reserva.fecha_reserva | fecha }}</td>
                         <td class="p-4">{{ reserva.hora_inicio.strftime('%H:%M') }} — {{ reserva.hora_fin.strftime('%H:%M') }}</td>
                         <td class="p-4">{{ tipos[reserva.tipo] }}</td>
                         <td class="p-4">{{ estados[estado] }}</td>

@@ -45,7 +45,7 @@ def test_reservation_lifecycle_notifies_owner(client):
         cancelar_reserva(reserva, AHORA)
         eventos = messages(11)
         assert [m.split(':')[0] for m in eventos] == ['Tu reserva fue confirmada', 'Tu reserva fue modificada', 'Tu reserva fue cancelada']
-        assert 'Squash' in eventos[0] and '2030-01-07' in eventos[0] and '14:00 a 16:00' in eventos[0]
+        assert 'Squash' in eventos[0] and '07/01/2030' in eventos[0] and '14:00 a 16:00' in eventos[0]
 
 
 def test_series_sends_one_summary(people):
@@ -155,8 +155,8 @@ def test_occupancy_report_by_day(client):
         log(datetime(2030, 1, 7, 10, 0), success=False)
         db.session.commit()
         filas = reporte_ocupacion(date(2030, 1, 6), date(2030, 1, 7), 1)['tablas'][0]['filas']
-        assert filas[0] == ['2030-01-06', '0,0', 0, 0, '0,0']
-        assert filas[1] == ['2030-01-07', '4,0', 2, 16, '25,0']
+        assert filas[0] == ['06/01/2030', '0,0', 0, 0, '0,0']
+        assert filas[1] == ['07/01/2030', '4,0', 2, 16, '25,0']
         assert filas[2] == ['Total', '4,0', 2, 16, '25,0']
 
 

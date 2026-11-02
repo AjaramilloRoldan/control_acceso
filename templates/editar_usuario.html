@@ -176,7 +176,7 @@
                 {% if revocadas %}
                 <ul class="mt-6 space-y-2 text-xs text-slate-500">
                     {% for tarjeta in revocadas %}
-                    <li class="flex justify-between gap-4"><span class="font-mono">{{ tarjeta.uid }}</span><span>{{ tarjeta.motivo_revocacion or 'Sin motivo' }} · {{ tarjeta.fecha_revocacion.strftime('%Y-%m-%d %H:%M') if tarjeta.fecha_revocacion else 'Sin fecha' }}</span></li>
+                    <li class="flex justify-between gap-4"><span class="font-mono">{{ tarjeta.uid }}</span><span>{{ tarjeta.motivo_revocacion or 'Sin motivo' }} · {{ tarjeta.fecha_revocacion | fecha_hora(False) if tarjeta.fecha_revocacion else 'Sin fecha' }}</span></li>
                     {% endfor %}
                 </ul>
                 {% endif %}
