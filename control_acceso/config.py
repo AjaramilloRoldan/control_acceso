@@ -20,6 +20,8 @@ if hasattr(time, 'tzset'):
 
 UPLOAD_FOLDER = 'static/uploads/instalaciones'
 DURACION_SESION = timedelta(hours=8)
+MARGEN_ACCESO_MINUTOS = int(os.getenv('MARGEN_ACCESO_MINUTOS', '10'))
+PLAZO_MODIFICACION_MINUTOS = int(os.getenv('PLAZO_MODIFICACION_MINUTOS', '60'))
 
 def behind_https_proxy():
     return os.getenv('BEHIND_HTTPS_PROXY', 'False').lower() == 'true'

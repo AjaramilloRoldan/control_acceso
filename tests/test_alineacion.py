@@ -228,8 +228,8 @@ def test_user_with_authorization_can_withdraw_it(client):
 def test_new_user_form_still_works(client):
     login_as(client, 'admin', 1)
 
-    client.post('/agregar_usuario', data=new_user_form(password='clave123'))
+    client.post('/agregar_usuario', data=new_user_form(password='Clave-Segura-123'))
 
     with app.app_context():
         usuario = User.query.filter_by(username='eva').one()
-        assert usuario.password != hash_password('clave123')
+        assert usuario.password != hash_password('Clave-Segura-123')

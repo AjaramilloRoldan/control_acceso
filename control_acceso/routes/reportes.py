@@ -1,9 +1,10 @@
 from datetime import date, timedelta
 
-from flask import Blueprint, Response, redirect, render_template, request, session, url_for
+from flask import Blueprint, Response, render_template, request, session
 
 from ..clock import hora_actual
-from ..models import Instalacion
+from ..permisos import deny_page
+from ..models import  Instalacion
 from ..reports import (FILAS_EN_PANTALLA, PeriodoInvalido, reporte_bitacora, reporte_denegados, reporte_ocupacion,
                        reporte_uso, to_csv, validate_period)
 
@@ -32,7 +33,7 @@ def build_report(tipo, desde, hasta, instalacion_id):
 
 @bp.route('/reportes')
 def reportes():
-    if session.get('role') != 'admin': return redirect(url_for('auth.login'))
+    if session.get('role') != 'admin': return deny_page()
 
     tipo = request.args.get('tipo', 'ocupacion')
     if tipo not in TIPOS_REPORTE:

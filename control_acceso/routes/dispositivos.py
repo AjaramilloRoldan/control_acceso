@@ -4,6 +4,7 @@ from flask import Blueprint, abort, flash, make_response, redirect, render_templ
 
 from ..extensions import db
 from ..models import Dispositivo, Instalacion
+from ..permisos import deny_page
 from ..security import hash_device_token, log_security_event
 
 bp = Blueprint('dispositivos', __name__)
@@ -20,7 +21,7 @@ def render_dispositivos(status=200, **contexto):
 
 @bp.route('/dispositivos', methods=['GET', 'POST'])
 def dispositivos():
-    if session.get('role') != 'admin': return redirect(url_for('auth.login'))
+    if session.get('role') != 'admin': return deny_page()
     if request.method == 'GET':
         return render_dispositivos()
 
@@ -47,7 +48,7 @@ def dispositivos():
 
 @bp.route('/dispositivos/<int:id>/revocar', methods=['POST'])
 def revocar_dispositivo(id):
-    if session.get('role') != 'admin': return redirect(url_for('auth.login'))
+    if session.get('role') != 'admin': return deny_page()
     lector = Dispositivo.query.get_or_404(id)
     if lector.estado != 'activo':
         return render_dispositivos(409, error='El lector ya estaba revocado')

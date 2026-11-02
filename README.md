@@ -50,7 +50,7 @@ Sistema de control de acceso para instalaciones privadas con medidas de segurida
 ### 8. Validación de Inputs
 
 - Validación de username (3-50 caracteres, alfanuméricos y guiones bajos)
-- Validación de contraseña (mínimo 6 caracteres)
+- Validación de contraseña (mínimo 12 caracteres, con mayúsculas, minúsculas, dígitos y símbolos)
 - Validación de nombre (2-100 caracteres)
 - Validación de RFID (3-50 caracteres)
 
@@ -115,6 +115,7 @@ python migrate_modelo.py
 python migrate_reservas.py
 python migrate_notificaciones.py
 python migrate_capacidad.py
+python migrate_indices.py
 ```
 
 ### 5. Ejecutar la Aplicación
@@ -242,6 +243,7 @@ control_acceso/
 ├── depurar_bitacora.py         # Elimina la bitácora que supera 24 meses
 ├── docs/openapi.json           # Contrato de las rutas JSON
 ├── migrate_capacidad.py        # Agrega capacidad y nombre único a los espacios
+├── migrate_indices.py          # Agrega los índices por fecha de bitácora y reservas
 ├── migrate_passwords.py        # Script de migración de contraseñas
 ├── requirements.txt            # Dependencias
 ├── .env.example               # Plantilla de configuración

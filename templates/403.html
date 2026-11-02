@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Acceso no autorizado</title>
+    <link rel="icon" href="/static/pestana.png" />
+    <script src="https://cdn.jsdelivr.net/npm/tailwindcss-cdn@3.4.10/tailwindcss.js"></script>
+  </head>
+  <body class="bg-[#0f172a] min-h-screen flex items-center justify-center p-6">
+    <main
+      class="w-full max-w-md bg-slate-900/40 border border-white/10 rounded-3xl p-10 text-center"
+    >
+      <h1 class="text-2xl font-extrabold text-white">Acceso no autorizado</h1>
+      <p class="text-slate-400 mt-3">
+        Tu rol no tiene permiso para realizar esta operación.
+      </p>
+      <a
+        href="{{ url_for('auth.index') }}"
+        class="inline-block mt-6 text-emerald-400 font-bold hover:text-emerald-300"
+        >Volver al inicio</a
+      >
+    </main>
+  </body>
+</html>

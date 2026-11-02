@@ -39,7 +39,7 @@ def denial_at(momento, uid='ddeeff00'):
 
 def new_user_form(**overrides):
     return {'name': 'Eva', 'apellido': 'Mora', 'identificacion': '1088123456', 'email': 'Eva@UCP.edu.co',
-            'rol': 'docente', 'rfid': 'A1:B2:C3:D4', 'username': 'eva', 'password': 'clave123', **overrides}
+            'rol': 'docente', 'rfid': 'A1:B2:C3:D4', 'username': 'eva', 'password': 'Clave-Segura-123', **overrides}
 
 
 def test_uid_is_normalized_to_lowercase_hex():
@@ -100,7 +100,7 @@ def test_reader_of_other_installation_is_rejected(client):
     response = client.post('/historial', json={'uid': 'aabbccdd', 'instalacion_id': 1}, headers=headers)
     assert response.status_code == 403
     with app.app_context():
-        assert AccessLog.query.count() == 0
+        assert AccessLog.query.filter_by(motivo='INSTALACION_NO_ASOCIADA', instalacion_id=2).count() == 1
 
 
 def test_disabled_reader_is_not_authenticated(client):
@@ -194,7 +194,7 @@ def test_user_logs_in_with_email_or_username(client):
 
 def test_inactive_user_cannot_log_in(client):
     change(User, 10, estado='inactivo')
-    assert client.post('/login', data={'username': 'ana', 'password': 'clave123'}).status_code == 200
+    assert client.post('/login', data={'username': 'ana', 'password': 'clave123'}).status_code == 401
 
 
 def test_installation_with_active_reservations_is_kept(client):
@@ -206,6 +206,7 @@ def test_installation_with_active_reservations_is_kept(client):
 
 def test_installation_without_reservations_is_retired_not_deleted(client):
     change(Reserva, 1, estado='cancelada')
+    change(Dispositivo, 1, estado='revocado')
     login_as(client, 'admin', 1)
     client.post('/eliminar_instalacion/1')
     with app.app_context():

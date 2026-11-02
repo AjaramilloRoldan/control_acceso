@@ -5,6 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from ..clock import hora_actual
 from ..extensions import db
 from ..models import MOTIVOS_REVOCACION, ROLES_USUARIO, VERSION_AVISO, Reserva, Tarjeta, User
+from ..permisos import deny_page
 from ..reports import FILAS_POR_PAGINA
 from ..security import hash_password, log_security_event
 from ..validators import (normalize_uid, read_personal_data, validate_name, validate_password, validate_rfid,
@@ -13,6 +14,9 @@ from ..validators import (normalize_uid, read_personal_data, validate_name, vali
 bp = Blueprint('usuarios', __name__)
 
 ENDPOINTS_SIN_AVISO = ('usuarios.autorizacion', 'auth.logout', 'static')
+FILTROS_ESTADO = ('activo', 'inactivo', 'todos')
+MENSAJE_CONTRASENA = 'Error: Contraseña inválida (mínimo 12 caracteres, con mayúsculas, minúsculas, dígitos y símbolos)'
+MENSAJE_USUARIO_INACTIVO = 'Error: No se puede asociar una tarjeta a un usuario inactivo'
 
 def revoke_card(tarjeta, motivo):
     tarjeta.estado = 'revocada'
@@ -27,6 +31,10 @@ def replace_active_card(usuario, uid):
         revoke_card(actual, 'reemplazo')
     usuario.tarjetas.append(Tarjeta(uid=uid))
 
+def rejects_new_card(usuario, uid):
+    actual = usuario.tarjeta_activa
+    return bool(uid) and usuario.estado != 'activo' and not (actual and actual.uid == uid)
+
 @bp.before_app_request
 def require_privacy_notice():
     if session.get('aviso_pendiente') and request.endpoint not in ENDPOINTS_SIN_AVISO:
@@ -34,7 +42,7 @@ def require_privacy_notice():
 
 @bp.route('/autorizacion', methods=['GET', 'POST'])
 def autorizacion():
-    if session.get('role') != 'user': return redirect(url_for('auth.login'))
+    if session.get('role') != 'user': return deny_page()
     usuario = db.session.get(User, session['user_id'])
 
     if request.method == 'GET':
@@ -62,29 +70,32 @@ def autorizacion():
 
 @bp.route('/usuarios')
 def usuarios():
-    if session.get('role') != 'admin': return redirect(url_for('auth.login'))
+    if session.get('role') != 'admin': return deny_page()
     busqueda = request.args.get('q', '').strip()
     rol = request.args.get('rol', '')
     estado = request.args.get('estado', 'activo')
+    status = 200
+    if (rol and rol not in ROLES_USUARIO) or estado not in FILTROS_ESTADO:
+        flash('Error: Filtro inválido', 'error')
+        rol, estado, status = '', 'activo', 400
 
     consulta = User.query
     if busqueda:
         consulta = consulta.filter(or_(*(campo.contains(busqueda, autoescape=True) for campo in
                                          (User.name, User.apellido, User.identificacion, User.email))))
-    if rol in ROLES_USUARIO:
+    if rol:
         consulta = consulta.filter(User.rol == rol)
-    if estado in ('activo', 'inactivo'):
+    if estado != 'todos':
         consulta = consulta.filter(User.estado == estado)
 
     paginacion = consulta.order_by(User.name, User.id).paginate(
         page=request.args.get('pagina', 1, type=int), per_page=FILAS_POR_PAGINA, error_out=False)
     return render_template('usuarios.html', usuarios=paginacion.items, paginacion=paginacion, roles=ROLES_USUARIO,
-                           filtros={'q': busqueda, 'rol': rol, 'estado': estado})
+                           filtros={'q': busqueda, 'rol': rol, 'estado': estado}), status
 
 @bp.route('/agregar_usuario', methods=['GET', 'POST'])
 def agregar_usuario():
-    if session.get('role') != 'admin': 
-        return redirect(url_for('auth.login'))
+    if session.get('role') != 'admin': return deny_page()
 
     if request.method == 'GET':
         rfid_pre = request.args.get('rfid', '')
@@ -102,15 +113,15 @@ def agregar_usuario():
         flash(error, 'error')
         return redirect(url_for('usuarios.usuarios'))
 
-    if not all([name, rfid, username, password]):
-        flash('Error: Todos los campos son obligatorios', 'error')
+    if not all([name, username, password]):
+        flash('Error: Nombre, usuario y contraseña son obligatorios', 'error')
         return redirect(url_for('usuarios.usuarios'))
     
     if not validate_name(name):
         flash('Error: Nombre inválido (mínimo 2 caracteres, máximo 100)', 'error')
         return redirect(url_for('usuarios.usuarios'))
     
-    if not validate_rfid(rfid):
+    if rfid and not validate_rfid(rfid):
         flash('Error: RFID inválido (hexadecimal, de 8 a 20 caracteres)', 'error')
         return redirect(url_for('usuarios.usuarios'))
     
@@ -119,13 +130,14 @@ def agregar_usuario():
         return redirect(url_for('usuarios.usuarios'))
     
     if not validate_password(password):
-        flash('Error: Contraseña inválida (mínimo 6 caracteres)', 'error')
+        flash(MENSAJE_CONTRASENA, 'error')
         return redirect(url_for('usuarios.usuarios'))
     
     try:
         hashed_password = hash_password(password)
         nuevo = User(name=name, username=username, password=hashed_password, **datos_personales)
-        nuevo.tarjetas.append(Tarjeta(uid=rfid))
+        if rfid:
+            nuevo.tarjetas.append(Tarjeta(uid=rfid))
         db.session.add(nuevo)
         db.session.commit()
         log_security_event('USER_CREATED', user_id=nuevo.id, details=f'Username: {username}', ip=client_ip)
@@ -138,7 +150,7 @@ def agregar_usuario():
 
 @bp.route('/editar_usuario/<int:id>', methods=['GET', 'POST'])
 def editar_usuario(id):
-    if session.get('role') != 'admin': return redirect(url_for('auth.login'))
+    if session.get('role') != 'admin': return deny_page()
     usuario = User.query.get_or_404(id)
     client_ip = request.remote_addr
     
@@ -167,7 +179,11 @@ def editar_usuario(id):
             return redirect(url_for('usuarios.editar_usuario', id=id))
         
         if password and not validate_password(password):
-            flash('Error: Contraseña inválida (mínimo 6 caracteres)', 'error')
+            flash(MENSAJE_CONTRASENA, 'error')
+            return redirect(url_for('usuarios.editar_usuario', id=id))
+
+        if rejects_new_card(usuario, rfid):
+            flash(MENSAJE_USUARIO_INACTIVO, 'error')
             return redirect(url_for('usuarios.editar_usuario', id=id))
         
         usuario.name = name
@@ -193,7 +209,7 @@ def editar_usuario(id):
 
 @bp.route('/usuarios/<int:id>/tarjeta/eliminar', methods=['POST'])
 def revocar_tarjeta(id):
-    if session.get('role') != 'admin': return redirect(url_for('auth.login'))
+    if session.get('role') != 'admin': return deny_page()
     usuario = User.query.get_or_404(id)
     tarjeta = usuario.tarjeta_activa
     if tarjeta is None:
@@ -207,6 +223,9 @@ def revocar_tarjeta(id):
         return redirect(url_for('usuarios.editar_usuario', id=id))
     if nuevo_uid and not validate_rfid(nuevo_uid):
         flash('Error: RFID inválido (hexadecimal, de 8 a 20 caracteres)', 'error')
+        return redirect(url_for('usuarios.editar_usuario', id=id))
+    if nuevo_uid and usuario.estado != 'activo':
+        flash(MENSAJE_USUARIO_INACTIVO, 'error')
         return redirect(url_for('usuarios.editar_usuario', id=id))
 
     revoke_card(tarjeta, motivo)
@@ -230,7 +249,7 @@ def revocar_tarjeta(id):
 
 @bp.route('/eliminar_usuario/<int:id>', methods=['POST'])
 def eliminar_usuario(id):
-    if session.get('role') != 'admin': return redirect(url_for('auth.login'))
+    if session.get('role') != 'admin': return deny_page()
     usuario_objeto = User.query.get_or_404(id) 
     
     try:

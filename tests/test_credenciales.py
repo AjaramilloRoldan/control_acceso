@@ -84,7 +84,7 @@ def test_revocation_without_active_card_is_not_found(client):
 def test_revocation_requires_admin(client):
     login_as(client, 'user', 10)
 
-    assert revoke(client, motivo='perdida').status_code == 302
+    assert revoke(client, motivo='perdida').status_code == 403
     assert card('aabbccdd').estado == 'activa'
 
 

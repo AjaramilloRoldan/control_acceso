@@ -93,7 +93,7 @@ def test_plaintext_password_is_rejected():
 
 
 def test_admin_login_requires_matching_bcrypt_hash(client):
-    assert client.post('/login', data={'username': 'admin', 'password': 'incorrecta'}).status_code == 200
+    assert client.post('/login', data={'username': 'admin', 'password': 'incorrecta'}).status_code == 401
     response = client.post('/login', data={'username': 'admin', 'password': ADMIN_PASSWORD})
     assert response.status_code == 302 and response.location.endswith('/dashboard')
 
@@ -188,7 +188,7 @@ def test_login_limit_counts_only_login_attempts(client):
         statuses = [client.post('/login', data={'username': 'x', 'password': 'y'}).status_code for _ in range(6)]
     finally:
         limiter.enabled = False
-    assert statuses == [200] * 5 + [429]
+    assert statuses == [401] * 5 + [429]
 
 
 def test_app_refuses_to_start_without_required_secret(monkeypatch):
