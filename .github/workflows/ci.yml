@@ -21,7 +21,7 @@ jobs:
       - name: Instalar dependencias
         run: pip install -r requirements.txt pytest==8.3.5 pyflakes==3.3.2
       - name: Análisis estático
-        run: python -m pyflakes app.py respaldar_base.py depurar_bitacora.py deploy/gunicorn.conf.py control_acceso
+        run: python -m pyflakes app.py crear_admin.py respaldar_base.py depurar_bitacora.py deploy/gunicorn.conf.py control_acceso
       - name: Pruebas
         run: python -m pytest -q
       - name: Configuración de Gunicorn

@@ -116,6 +116,7 @@ flowchart LR
 ├── depurar_bitacora.py         # Depuración de la bitácora a 24 meses
 ├── monitor_disponibilidad.py   # Sondeo de /health
 ├── registrar_dispositivo.py    # Registro de lectores por consola
+├── crear_admin.py              # Creación de administradores
 ├── control_acceso.mwb          # Modelo de datos de MySQL Workbench
 └── .env.example                # Plantilla de configuración
 ```
@@ -168,25 +169,10 @@ Los scripts `check_alejandro.py` y `check_timezone.py` son utilidades de diagnó
 
    La aplicación queda en `http://localhost:5000` y escucha en todas las interfaces de red. Este modo es solo para desarrollo.
 
-6. Crear el administrador inicial. La tabla `admin` no tiene modelo, por lo que el arranque no la crea. Primero se genera el hash de la contraseña:
+6. Crear el administrador inicial. La contraseña se solicita por consola y debe cumplir la política de seguridad.
 
    ```bash
-   python -c "import bcrypt, getpass; print(bcrypt.hashpw(getpass.getpass().encode(), bcrypt.gensalt()).decode())"
-   ```
-
-   Después se ejecuta en MySQL, reemplazando el usuario y el hash:
-
-   ```sql
-   USE control_acceso;
-
-   CREATE TABLE admin (
-     id INT NOT NULL AUTO_INCREMENT,
-     username VARCHAR(50) NOT NULL,
-     password VARCHAR(255) NOT NULL,
-     PRIMARY KEY (id)
-   );
-
-   INSERT INTO admin (username, password) VALUES ('NOMBRE_DE_USUARIO', 'HASH_GENERADO');
+   python crear_admin.py NOMBRE_DE_USUARIO
    ```
 
 ### Actualizar una instalación existente

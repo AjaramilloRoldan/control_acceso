@@ -5,7 +5,7 @@ from flask import (Blueprint, flash, jsonify, redirect, render_template, request
 from ..clock import hora_actual
 from ..extensions import db
 from ..models import Instalacion, Notificacion, Reserva, User
-from ..permisos import deny_json, deny_page
+from ..permisos import deny_json, deny_page, log_denied_access
 from ..security import log_security_event
 from ..reservations import (ROL_POR_TIPO, ROLES_CON_RESERVA, ReservaError, cancelar_reserva, check_manager,
                             crear_reserva, modificar_reserva, parse_date, parse_serie, parse_time,
@@ -24,7 +24,15 @@ def session_user():
 @bp.errorhandler(ReservaError)
 def handle_reserva_error(error):
     db.session.rollback()
+    if error.status == 403 and 'user_id' in session:
+        log_denied_access()
     return jsonify({"error": error.message}), error.status
+
+def find_reservation(reserva_id):
+    reserva = db.session.get(Reserva, reserva_id)
+    if reserva is None:
+        raise ReservaError('Reserva no encontrada', 404)
+    return reserva
 
 @bp.route('/instalaciones')
 def instalaciones():
@@ -79,7 +87,8 @@ def reservar():
 
 @bp.route('/reservas/<int:reserva_id>', methods=['POST'])
 def modificar(reserva_id):
-    reserva = Reserva.query.get_or_404(reserva_id)
+    if 'user_id' not in session: return deny_json()
+    reserva = find_reservation(reserva_id)
     check_manager(reserva, session_user(), session.get('role') == 'admin')
     modificar_reserva(
         reserva,
@@ -93,7 +102,8 @@ def modificar(reserva_id):
 
 @bp.route('/cancelar_reserva/<int:reserva_id>', methods=['POST'])
 def cancelar(reserva_id):
-    reserva = Reserva.query.get_or_404(reserva_id)
+    if 'user_id' not in session: return deny_json()
+    reserva = find_reservation(reserva_id)
     check_manager(reserva, session_user(), session.get('role') == 'admin')
     cancelar_reserva(reserva, hora_actual())
     log_security_event('RESERVATION_CANCELLED', details=f'Reserva: {reserva.id}', ip=request.remote_addr)
