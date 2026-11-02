@@ -1,14 +1,16 @@
 import os
 from datetime import datetime
 
-from flask import Blueprint, current_app, flash, jsonify, redirect, render_template, request, session, url_for
+from flask import Blueprint, current_app, flash, redirect, render_template, request, session, url_for
 from sqlalchemy.exc import IntegrityError
 from werkzeug.utils import secure_filename
 
 from ..clock import hora_actual
 from ..extensions import db
-from ..models import ROLES_USUARIO, Instalacion, Reserva
+from ..models import ROLES_USUARIO, Dispositivo, Instalacion, Reserva
 from ..notifications import describir_reserva, notificar
+from ..permisos import deny_page
+from ..security import log_security_event
 
 bp = Blueprint('instalaciones', __name__)
 
@@ -53,15 +55,18 @@ def notify_affected_reservations(inst):
     for reserva in afectadas:
         notificar(reserva.usuario, f'La instalación pasó a {estado}; afecta tu reserva: {describir_reserva(reserva)}.')
 
+def render_espacios(status=200):
+    todas = Instalacion.query.filter(Instalacion.estado != 'baja').all()
+    return render_template('admin_instalaciones.html', instalaciones=todas, admin_name=session.get('name')), status
+
 @bp.route('/admin_instalaciones')
 def admin_instalaciones():
-    if session.get('role') != 'admin': return redirect(url_for('auth.login'))
-    todas = Instalacion.query.filter(Instalacion.estado != 'baja').all()
-    return render_template('admin_instalaciones.html', instalaciones=todas, admin_name=session.get('name'))
+    if session.get('role') != 'admin': return deny_page()
+    return render_espacios()
 
 @bp.route('/crear_instalacion', methods=['POST'])
 def crear_instalacion():
-    if session.get('role') != 'admin': return jsonify({"error": "No autorizado"}), 403
+    if session.get('role') != 'admin': return deny_page()
     
     campos, error = read_space_fields(request.form)
     if error:
@@ -76,19 +81,21 @@ def crear_instalacion():
         filename = secure_filename(f"{datetime.now().timestamp()}_{file.filename}")
         file.save(os.path.join(current_app.config['UPLOAD_FOLDER'], filename))
     
-    db.session.add(Instalacion(descripcion=descripcion, imagen=filename, **campos))
+    espacio = Instalacion(descripcion=descripcion, imagen=filename, **campos)
+    db.session.add(espacio)
     try:
         db.session.commit()
     except IntegrityError:
         db.session.rollback()
         flash(MENSAJE_NOMBRE_REPETIDO, 'error')
         return redirect(url_for('instalaciones.admin_instalaciones'))
+    log_security_event('SPACE_CREATED', details=f'Espacio: {espacio.id}', ip=request.remote_addr)
     flash('Instalación creada con éxito', 'success')
     return redirect(url_for('instalaciones.admin_instalaciones'))
 
 @bp.route('/editar_instalacion/<int:id>', methods=['POST'])
 def editar_instalacion(id):
-    if session.get('role') != 'admin': return redirect(url_for('auth.login'))
+    if session.get('role') != 'admin': return deny_page()
     inst = Instalacion.query.get_or_404(id)
     
     estado = request.form.get('estado')
@@ -125,6 +132,7 @@ def editar_instalacion(id):
         db.session.rollback()
         flash(MENSAJE_NOMBRE_REPETIDO, 'error')
         return redirect(url_for('instalaciones.admin_instalaciones'))
+    log_security_event('SPACE_UPDATED', details=f'Espacio: {id}; estado: {inst.estado}', ip=request.remote_addr)
     if deja_de_operar:
         notify_affected_reservations(inst)
     flash('Instalación actualizada', 'success')
@@ -132,8 +140,7 @@ def editar_instalacion(id):
 
 @bp.route('/eliminar_instalacion/<int:id>', methods=['POST'])
 def eliminar_instalacion(id):
-    if session.get('role') != 'admin': 
-        return redirect(url_for('auth.login'))
+    if session.get('role') != 'admin': return deny_page()
     
     inst = Instalacion.query.get_or_404(id)
 
@@ -145,11 +152,17 @@ def eliminar_instalacion(id):
             Reserva.fecha_reserva >= hoy
         ).count()
         if reservas_futuras:
-            flash(f'La instalación tiene {reservas_futuras} reserva(s) activa(s)', 'error')
-            return redirect(url_for('instalaciones.admin_instalaciones'))
+            detalle = '1 reserva activa' if reservas_futuras == 1 else f'{reservas_futuras} reservas activas'
+            flash(f'El espacio tiene {detalle}', 'error')
+            return render_espacios(409)
+
+        if Dispositivo.query.filter_by(instalacion_id=id, estado='activo').count():
+            flash('El espacio tiene un lector activo: revócalo antes de darlo de baja', 'error')
+            return render_espacios(409)
 
         inst.estado = 'baja'
         db.session.commit()
+        log_security_event('SPACE_RETIRED', details=f'Espacio: {id}', ip=request.remote_addr)
         flash('Instalación eliminada correctamente', 'success')
 
     except Exception:

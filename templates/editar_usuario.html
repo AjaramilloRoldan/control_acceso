@@ -72,8 +72,8 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                     
                     <div class="md:col-span-2 group">
-                        <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 ml-1 group-focus-within:text-brand-400 transition-colors">Nombre Completo del Titular</label>
-                        <input type="text" name="name" value="{{ usuario.name }}" required 
+                        <label for="name" class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 ml-1 group-focus-within:text-brand-400 transition-colors">Nombre Completo del Titular</label>
+                        <input type="text" id="name" name="name" value="{{ usuario.name }}" required 
                             class="w-full px-6 py-4 input-glass rounded-2xl text-white font-medium focus:outline-none placeholder-slate-600"
                             placeholder="Nombre y Apellido">
                     </div>
@@ -99,9 +99,9 @@
                         </select>
                     </div>
                     <div class="group">
-                        <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 ml-1 group-focus-within:text-emerald-400 transition-colors">Código RFID (Lectura)</label>
+                        <label for="rfid" class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 ml-1 group-focus-within:text-emerald-400 transition-colors">Código RFID (Lectura)</label>
                         <div class="relative">
-                            <input type="text" name="rfid" value="{{ usuario.rfid }}"{{ ' required' if usuario.tarjeta_activa }}
+                            <input type="text" id="rfid" name="rfid" value="{{ usuario.rfid }}"{{ ' required' if usuario.tarjeta_activa }}
                                 class="w-full px-6 py-4 input-glass rounded-2xl text-emerald-400 font-mono font-bold focus:outline-none"
                                 placeholder="HEX-CODE">
                             {% if usuario.tarjeta_activa %}
@@ -113,18 +113,18 @@
                     </div>
 
                     <div class="group">
-                        <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 ml-1 group-focus-within:text-brand-400 transition-colors">Nombre de Usuario</label>
-                        <input type="text" name="username" value="{{ usuario.username }}" required 
+                        <label for="username" class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 ml-1 group-focus-within:text-brand-400 transition-colors">Nombre de Usuario</label>
+                        <input type="text" id="username" name="username" value="{{ usuario.username }}" required 
                             class="w-full px-6 py-4 input-glass rounded-2xl text-white focus:outline-none"
                             placeholder="username">
                     </div>
 
                     <div class="md:col-span-2 group">
                         <div class="flex justify-between items-center mb-3 ml-1">
-                            <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest group-focus-within:text-brand-400 transition-colors">Nueva Contraseña de Acceso</label>
+                            <label for="password" class="block text-[10px] font-black text-slate-500 uppercase tracking-widest group-focus-within:text-brand-400 transition-colors">Nueva Contraseña de Acceso</label>
                             <span class="text-[9px] text-amber-500/80 font-bold uppercase tracking-tighter bg-amber-500/5 px-2 py-0.5 rounded border border-amber-500/10">Opcional</span>
                         </div>
-                        <input type="password" name="password" 
+                        <input type="password" id="password" name="password" minlength="12" 
                             class="w-full px-6 py-4 input-glass rounded-2xl text-white focus:outline-none placeholder-slate-700"
                             placeholder="••••••••••••">
                         <p class="text-[10px] text-slate-500 mt-3 px-1 flex items-center gap-2">
@@ -151,7 +151,7 @@
                 <h3 class="text-lg font-bold text-white mb-1">Tarjeta RFID</h3>
                 {% if usuario.tarjeta_activa %}
                 <p class="text-slate-400 text-sm mb-6">La revocación aplica desde la siguiente lectura en cualquier puerta.</p>
-                <form method="POST" action="{{ url_for('usuarios.revocar_tarjeta', id=usuario.id) }}" class="grid grid-cols-1 md:grid-cols-2 gap-6" onsubmit="return confirm('¿Revocar la tarjeta {{ usuario.rfid }}? Esta acción no se puede deshacer.')">
+                <form method="POST" action="{{ url_for('usuarios.revocar_tarjeta', id=usuario.id) }}" class="grid grid-cols-1 md:grid-cols-2 gap-6" data-uid="{{ usuario.rfid }}" onsubmit="return confirm(`¿Revocar la tarjeta ${this.dataset.uid}? Esta acción no se puede deshacer.`)">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                     <div>
                         <label for="motivo" class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 ml-1">Motivo</label>

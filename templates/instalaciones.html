@@ -74,10 +74,10 @@
                     </div>
                     {% if gestiona_reservas %}
                     <div class="flex items-center gap-2">
-                    <button onclick="openBookingModal('{{ res.instalacion_id }}', '{{ res.instalacion.nombre }}', '{{ res.id }}')" class="bg-slate-800 text-slate-300 px-3 py-3 rounded-xl text-xs font-bold hover:bg-emerald-500 hover:text-slate-950 transition-all shadow-lg">Modificar</button>
+                    <button onclick="openBookingModal(this)" data-instalacion="{{ res.instalacion_id }}" data-nombre="{{ res.instalacion.nombre }}" data-reserva="{{ res.id }}" class="bg-slate-800 text-slate-300 px-3 py-3 rounded-xl text-xs font-bold hover:bg-emerald-500 hover:text-slate-950 transition-all shadow-lg">Modificar</button>
                     <div class="relative tooltip-trigger">
                         <span class="tooltip opacity-0 transition-all absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] py-1 px-3 rounded-md pointer-events-none whitespace-nowrap border border-white/10">Eliminar Reserva</span>
-                        <button onclick="confirmDelete('{{ res.id }}')" class="bg-slate-800 text-slate-400 p-3 rounded-xl hover:bg-red-500 hover:text-white transition-all shadow-lg">
+                        <button onclick="confirmDelete('{{ res.id }}')" aria-label="Cancelar reserva" class="bg-slate-800 text-slate-400 p-3 rounded-xl hover:bg-red-500 hover:text-white transition-all shadow-lg">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                                 <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
                             </svg>
@@ -112,7 +112,7 @@
             {% for inst in instalaciones %}
             <article class="glass-card rounded-3xl overflow-hidden group hover:-translate-y-2 transition-all duration-300">
                 <div class="h-56 relative overflow-hidden">
-                    <img src="{{ inst.imagen }}" class="w-full h-full object-cover">
+                    <img alt="{{ inst.nombre }}" src="{{ inst.imagen }}" class="w-full h-full object-cover">
                     <div class="absolute inset-0 bg-gradient-to-t from-slate-950"></div>
                 </div>
                 <div class="p-8">
@@ -121,7 +121,7 @@
                     <p class="text-sm text-slate-400 mb-4">{{ [inst.ubicacion, (inst.capacidad ~ ' personas') if inst.capacidad, inst.dotacion] | select | join(' · ') }}</p>
                     {% endif %}
                     {% if inst.id in reservables %}
-                    <button onclick="openBookingModal('{{ inst.id }}', '{{ inst.nombre }}')" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-4 rounded-2xl shadow-xl active:scale-95 transition-all">
+                    <button onclick="openBookingModal(this)" data-instalacion="{{ inst.id }}" data-nombre="{{ inst.nombre }}" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-4 rounded-2xl shadow-xl active:scale-95 transition-all">
                         Reservar Espacio
                     </button>
                     {% else %}
@@ -149,7 +149,7 @@
                 <div class="md:col-span-5">
                     <label class="block text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-3">1. FECHA</label>
                     <div id="calendarContainer" class="rounded-2xl bg-slate-900/40 border border-white/5 overflow-hidden"></div>
-                    <input type="text" name="fecha" id="datePicker" class="hidden" required>
+                    <input type="text" name="fecha" id="datePicker" aria-label="Fecha de la reserva" class="hidden" required>
                 </div>
 
                 <div class="md:col-span-7 flex flex-col gap-4">
@@ -163,7 +163,7 @@
                         <div id="endContainer" class="grid grid-cols-4 gap-2 max-h-[140px] overflow-y-auto pr-2 custom-scrollbar"></div>
                     </div>
 
-                    <input type="text" name="motivo" id="input_motivo" maxlength="200" placeholder="Motivo (opcional)" class="w-full px-4 py-3 bg-slate-900/40 border border-white/5 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500">
+                    <input type="text" name="motivo" id="input_motivo" aria-label="Motivo de la reserva (opcional)" maxlength="200" placeholder="Motivo (opcional)" class="w-full px-4 py-3 bg-slate-900/40 border border-white/5 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500">
 
                     <div id="selectionSummary" class="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4 hidden">
                         <p class="text-[9px] text-emerald-400 font-bold uppercase tracking-widest">RANGO SELECCIONADO:</p>
@@ -201,8 +201,9 @@
         const OPEN_TIME = 6;
         const CLOSE_TIME = 22;
 
-        function openBookingModal(id, nombre, reservaId = null) {
-            editingId = reservaId;
+        function openBookingModal(boton) {
+            const { instalacion: id, nombre, reserva: reservaId = null } = boton.dataset;
+editingId = reservaId;
             document.getElementById('bookingForm').setAttribute('action', reservaId ? `/reservas/${reservaId}` : '/reservar');
             document.getElementById('input_motivo').classList.toggle('hidden', Boolean(reservaId));
             document.getElementById('bookingError').classList.add('hidden');

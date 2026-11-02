@@ -5,6 +5,8 @@ from flask import (Blueprint, flash, jsonify, redirect, render_template, request
 from ..clock import hora_actual
 from ..extensions import db
 from ..models import Instalacion, Notificacion, Reserva, User
+from ..permisos import deny_json, deny_page
+from ..security import log_security_event
 from ..reservations import (ROL_POR_TIPO, ROLES_CON_RESERVA, ReservaError, cancelar_reserva, check_manager,
                             crear_reserva, modificar_reserva, parse_date, parse_serie, parse_time,
                             programar_series, read_series_csv)
@@ -61,7 +63,7 @@ def instalaciones():
 
 @bp.route('/reservar', methods=['POST'])
 def reservar():
-    if session.get('role') != 'user': return redirect(url_for('auth.login'))
+    if session.get('role') != 'user': return deny_json()
 
     reserva = crear_reserva(
         session_user(),
@@ -72,6 +74,7 @@ def reservar():
         request.form.get('motivo'),
         hora_actual()
     )
+    log_security_event('RESERVATION_CREATED', details=f'Reserva: {reserva.id}', ip=request.remote_addr)
     return jsonify({"id": reserva.id}), 201
 
 @bp.route('/reservas/<int:reserva_id>', methods=['POST'])
@@ -85,6 +88,7 @@ def modificar(reserva_id):
         parse_time(request.form.get('hora_fin')),
         hora_actual()
     )
+    log_security_event('RESERVATION_UPDATED', details=f'Reserva: {reserva.id}', ip=request.remote_addr)
     return jsonify({"id": reserva.id})
 
 @bp.route('/cancelar_reserva/<int:reserva_id>', methods=['POST'])
@@ -92,25 +96,26 @@ def cancelar(reserva_id):
     reserva = Reserva.query.get_or_404(reserva_id)
     check_manager(reserva, session_user(), session.get('role') == 'admin')
     cancelar_reserva(reserva, hora_actual())
+    log_security_event('RESERVATION_CANCELLED', details=f'Reserva: {reserva.id}', ip=request.remote_addr)
     return jsonify({"id": reserva.id})
 
 @bp.route('/notificaciones')
 def notificaciones():
-    if session.get('role') != 'user': return redirect(url_for('auth.login'))
+    if session.get('role') != 'user': return deny_page()
     bandeja = Notificacion.query.filter_by(user_id=session['user_id']) \
         .order_by(Notificacion.creado_en.desc(), Notificacion.id.desc()).all()
     return render_template('notificaciones.html', notificaciones=bandeja, pendientes=any(not n.leida for n in bandeja))
 
 @bp.route('/notificaciones/leidas', methods=['POST'])
 def marcar_leidas():
-    if session.get('role') != 'user': return redirect(url_for('auth.login'))
+    if session.get('role') != 'user': return deny_page()
     Notificacion.query.filter_by(user_id=session['user_id'], leida=False).update({'leida': True})
     db.session.commit()
     return redirect(url_for('reservas.notificaciones'))
 
 @bp.route('/mis_reservas')
 def mis_reservas():
-    if session.get('role') != 'user': return redirect(url_for('auth.login'))
+    if session.get('role') != 'user': return deny_page()
 
     filtros = {clave: request.args.get(clave, '') for clave in ('estado', 'fecha_desde', 'fecha_hasta')}
     ahora = hora_actual()
@@ -171,7 +176,7 @@ def series_from_request(tipo):
 
 @bp.route('/reservas/recurrentes', methods=['GET', 'POST'])
 def recurrentes():
-    if session.get('role') != 'admin': return redirect(url_for('auth.login'))
+    if session.get('role') != 'admin': return deny_page()
     if request.method == 'GET':
         return render_recurrentes()
 
@@ -180,6 +185,7 @@ def recurrentes():
     except ReservaError as error:
         db.session.rollback()
         return render_recurrentes(error.message), error.status
+    log_security_event('SERIES_SCHEDULED', details=f'Ocurrencias: {creadas}', ip=request.remote_addr)
     flash(f'Programación registrada: {creadas} ocurrencia(s)', 'success')
     return redirect(url_for('reservas.recurrentes'))
 
@@ -190,6 +196,9 @@ def consultar_disponibilidad(inst_id, fecha):
         fecha_consulta = datetime.strptime(fecha, '%Y-%m-%d').date()
     except ValueError:
         return jsonify({"error": "Fecha inválida"}), 400
+    espacio = db.session.get(Instalacion, inst_id)
+    if espacio is None or espacio.estado == 'baja':
+        return jsonify({"error": "Espacio no encontrado"}), 404
     excluir = request.args.get('excluir', type=int)
     reservas = Reserva.query.filter_by(instalacion_id=inst_id, fecha_reserva=fecha_consulta, estado='activa').all()
     ocupados = [{"from": r.hora_inicio.strftime('%H:%M'), "to": r.hora_fin.strftime('%H:%M')}

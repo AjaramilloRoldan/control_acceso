@@ -83,8 +83,8 @@ def test_reader_needs_valid_description(client, descripcion):
 def test_reader_management_requires_admin(client):
     login_as(client, 'user', 10)
 
-    assert client.get('/dispositivos').status_code == 302
-    assert new_reader(client).status_code == 302
+    assert client.get('/dispositivos').status_code == 403
+    assert new_reader(client).status_code == 403
 
 
 def test_log_combines_filters(client):
@@ -193,4 +193,4 @@ def test_polling_every_five_seconds_is_not_rate_limited(client):
 def test_monitoring_requires_admin(client):
     login_as(client, 'user', 10)
 
-    assert client.get('/api/monitoreo').status_code == 401
+    assert client.get('/api/monitoreo').status_code == 403

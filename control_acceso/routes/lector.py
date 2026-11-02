@@ -13,9 +13,21 @@ from ..validators import normalize_uid, validate_rfid
 
 bp = Blueprint('lector', __name__)
 
+LONGITUD_UID_BITACORA = 50
+SOLICITUDES_RECHAZADAS = {
+    'INSTALACION_NO_ASOCIADA': ("Instalación no asociada al dispositivo", 403),
+    'UID_INVALIDO': ("UID inválido", 400),
+}
+
 def authenticated_device():
     token_hash = hash_device_token(request.headers.get('X-Device-Token', ''))
     return Dispositivo.query.filter_by(token_hash=token_hash, estado='activo').first()
+
+def rejected_request_reason(data, uid, dispositivo):
+    if data.get('instalacion_id') != dispositivo.instalacion_id:
+        log_security_event('DEVICE_INSTALLATION_MISMATCH', details=f'Dispositivo: {dispositivo.id}', ip=request.remote_addr)
+        return 'INSTALACION_NO_ASOCIADA'
+    return None if validate_rfid(uid) else 'UID_INVALIDO'
 
 @bp.route('/historial', methods=['POST'])
 @csrf.exempt
@@ -27,14 +39,9 @@ def validar_acceso():
         return jsonify({"message": "Dispositivo no autorizado", "access": False}), 401
 
     data = request.get_json(silent=True) or {}
-    if data.get('instalacion_id') != dispositivo.instalacion_id:
-        log_security_event('DEVICE_INSTALLATION_MISMATCH', details=f'Dispositivo: {dispositivo.id}', ip=request.remote_addr)
-        return jsonify({"message": "Instalación no asociada al dispositivo", "access": False}), 403
-
     uid = data.get('uid')
     uid = normalize_uid(uid) if isinstance(uid, str) else ''
-    if not validate_rfid(uid):
-        return jsonify({"message": "UID inválido", "access": False}), 400
+    rechazo = rejected_request_reason(data, uid, dispositivo)
 
     tiempo_reconexion_wifi = data.get('tiempo_reconexion_wifi')
     if not isinstance(tiempo_reconexion_wifi, int) or tiempo_reconexion_wifi < 0:
@@ -44,8 +51,9 @@ def validar_acceso():
 
     try:
         instalacion = db.session.get(Instalacion, dispositivo.instalacion_id)
-        user, motivo = evaluate_access(uid, instalacion, ahora)
-        registro = AccessLog(user_id=user.id if user else None, rfid_uid=uid, instalacion_id=instalacion.id,
+        user, motivo = (None, rechazo) if rechazo else evaluate_access(uid, instalacion, ahora)
+        registro = AccessLog(user_id=user.id if user else None, rfid_uid=uid[:LONGITUD_UID_BITACORA] or None,
+                             instalacion_id=instalacion.id,
                              dispositivo_id=dispositivo.id, success=motivo is None, motivo=motivo,
                              tiempo_reconexion_wifi=tiempo_reconexion_wifi, timestamp=ahora)
         db.session.add(registro)
@@ -56,6 +64,9 @@ def validar_acceso():
         current_app.logger.exception('Error al registrar el acceso del UID %s', uid)
         return jsonify({"message": "Acceso denegado", "access": False, "motivo": "ERROR_REGISTRO"}), 500
 
+    if rechazo:
+        mensaje, status = SOLICITUDES_RECHAZADAS[rechazo]
+        return jsonify({"message": mensaje, "access": False, "motivo": rechazo, "log_id": registro.id}), status
     if motivo is None:
         return jsonify({"message": f"Acceso autorizado: {user.name}", "access": True, "motivo": None, "log_id": registro.id}), 200
     return jsonify({"message": "Acceso denegado", "access": False, "motivo": motivo, "log_id": registro.id}), 403

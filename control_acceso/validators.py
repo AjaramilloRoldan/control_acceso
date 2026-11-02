@@ -2,6 +2,8 @@ import re
 
 from .models import ROLES_USUARIO
 
+LONGITUD_MINIMA_CONTRASENA = 12
+
 def validate_username(username):
     """Valida que el username cumpla con los requisitos"""
     if not username or len(username) < 3 or len(username) > 50:
@@ -10,10 +12,10 @@ def validate_username(username):
     return all(c.isalnum() or c == '_' for c in username)
 
 def validate_password(password):
-    """Valida que la contraseña cumpla con requisitos mínimos"""
-    if not password or len(password) < 6:
+    """Valida la longitud y las clases de caracteres exigidas para la contraseña"""
+    if not password or len(password) < LONGITUD_MINIMA_CONTRASENA:
         return False
-    return True
+    return all(re.search(clase, password) for clase in (r'[a-z]', r'[A-Z]', r'\d', r'[^a-zA-Z0-9]'))
 
 def normalize_uid(uid):
     """Representa el UID en hexadecimal, en minúsculas y sin separadores"""
