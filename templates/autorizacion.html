@@ -107,6 +107,9 @@
             </button>
           </div>
         </form>
+        {% if not session.get('aviso_pendiente') %}
+        <a href="/instalaciones" class="block mt-6 text-center text-sm text-slate-400 hover:text-white">Volver</a>
+        {% endif %}
       </section>
     </main>
   </body>

@@ -26,7 +26,7 @@ def messages(user_id):
 
 
 def edit_form(**overrides):
-    return {'nombre': 'Squash', 'descripcion': '', 'estado': 'activo',
+    return {'nombre': 'Squash', 'descripcion': '', 'capacidad': '4', 'estado': 'activo',
             'roles_permitidos': ['estudiante', 'docente', 'administrativo'], **overrides}
 
 

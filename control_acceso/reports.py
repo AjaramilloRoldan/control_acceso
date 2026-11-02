@@ -12,6 +12,7 @@ DENEGACIONES_PARA_MARCAR = 3
 VENTANA_DENEGACIONES = timedelta(minutes=10)
 FILAS_EN_PANTALLA = 500
 FILAS_POR_PAGINA = 20
+COLUMNAS_BITACORA = ['ID', 'Fecha y hora', 'Usuario', 'UID', 'Espacio', 'Resultado', 'Motivo']
 PREFIJOS_DE_FORMULA = ('=', '+', '-', '@')
 
 HORAS_HABILES_POR_DIA = HORA_CIERRE.hour - HORA_APERTURA.hour
@@ -166,6 +167,14 @@ def consulta_bitacora(desde=None, hasta=None, instalacion_id=None, user_id=None,
     if motivo:
         consulta = consulta.filter(AccessLog.motivo == motivo)
     return consulta.order_by(AccessLog.timestamp.desc(), AccessLog.id.desc())
+
+
+def reporte_consulta_bitacora(consulta):
+    filas = [[
+        acceso.id, acceso.timestamp.strftime('%Y-%m-%d %H:%M:%S'), usuario or 'No registrado', acceso.rfid_uid or '',
+        espacio or 'Sin espacio', 'Autorizado' if acceso.success else 'Denegado', acceso.motivo or '',
+    ] for acceso, usuario, espacio in consulta]
+    return {'tablas': [{'titulo': 'Bitácora de accesos', 'columnas': COLUMNAS_BITACORA, 'filas': filas}]}
 
 
 def reporte_bitacora(desde, hasta, instalacion_id=None):

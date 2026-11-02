@@ -1,5 +1,6 @@
 import os
 import time
+from datetime import timedelta
 from urllib.parse import quote_plus
 
 from dotenv import load_dotenv
@@ -18,6 +19,7 @@ if hasattr(time, 'tzset'):
     time.tzset()
 
 UPLOAD_FOLDER = 'static/uploads/instalaciones'
+DURACION_SESION = timedelta(hours=8)
 
 def behind_https_proxy():
     return os.getenv('BEHIND_HTTPS_PROXY', 'False').lower() == 'true'
