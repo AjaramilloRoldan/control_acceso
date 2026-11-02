@@ -70,7 +70,7 @@
         </nav>
         
      <div class="p-6 m-4 glass rounded-2xl flex items-center gap-4">
-            <img src="https://cdn-icons-png.flaticon.com/512/1946/1946429.png" class="w-10 h-10 rounded-full border border-slate-600">
+            <img alt="" src="https://cdn-icons-png.flaticon.com/512/1946/1946429.png" class="w-10 h-10 rounded-full border border-slate-600">
             <div class="overflow-hidden">
                 <p class="text-xs text-slate-400 truncate">{{ admin_name }}</p>
             </div>
@@ -102,9 +102,9 @@
                     <div class="h-48 w-full relative">
                         {% if inst.imagen %}
                             {% if inst.imagen.startswith('http') or inst.imagen.startswith('/static') %}
-                                <img src="{{ inst.imagen }}" class="w-full h-full object-cover">
+                                <img alt="{{ inst.nombre }}" src="{{ inst.imagen }}" class="w-full h-full object-cover">
                             {% else %}
-                                <img src="{{ url_for('static', filename='uploads/instalaciones/' + inst.imagen) }}" class="w-full h-full object-cover">
+                                <img alt="{{ inst.nombre }}" src="{{ url_for('static', filename='uploads/instalaciones/' + inst.imagen) }}" class="w-full h-full object-cover">
                             {% endif %}
                         {% else %}
                             <div class="w-full h-full bg-slate-800 flex items-center justify-center text-slate-600 italic">Sin Imagen</div>
@@ -118,7 +118,7 @@
                         {% endif %}
                         <p class="text-slate-400 text-sm line-clamp-2 mb-6">{{ inst.descripcion }}</p>
                         <div class="flex gap-3">
-                            <button onclick="openModal('edit', '{{ inst.id }}', '{{ inst.nombre }}', '{{ inst.descripcion }}', '{{ inst.imagen }}', '{{ inst.estado }}', '{{ inst.roles_autorizados|join(',') }}', this)" data-ubicacion="{{ inst.ubicacion or '' }}" data-capacidad="{{ inst.capacidad or '' }}" data-dotacion="{{ inst.dotacion or '' }}" 
+                            <button onclick="openModal('edit', this)" data-id="{{ inst.id }}" data-nombre="{{ inst.nombre }}" data-descripcion="{{ inst.descripcion or '' }}" data-imagen="{{ inst.imagen or '' }}" data-estado="{{ inst.estado }}" data-roles="{{ inst.roles_autorizados|join(',') }}" data-ubicacion="{{ inst.ubicacion or '' }}" data-capacidad="{{ inst.capacidad or '' }}" data-dotacion="{{ inst.dotacion or '' }}" 
                                     class="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition-all border border-white/5 text-sm">
                                 Editar
                             </button>
@@ -145,7 +145,7 @@
                 <form id="instForm" method="POST" enctype="multipart/form-data" class="space-y-6">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                     <div>
-                        <label class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2 ml-1">Nombre</label>
+                        <label for="formNombre" class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2 ml-1">Nombre</label>
                         <input type="text" name="nombre" id="formNombre" required class="w-full bg-dark-900/50 border border-white/5 rounded-2xl px-5 py-4 text-white focus:outline-none focus:border-emerald-500/50 transition-all">
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -163,7 +163,7 @@
                         </div>
                     </div>
                     <div>
-                        <label class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2 ml-1">Descripción</label>
+                        <label for="formDesc" class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2 ml-1">Descripción</label>
                         <textarea name="descripcion" id="formDesc" rows="3" class="w-full bg-dark-900/50 border border-white/5 rounded-2xl px-5 py-4 text-white focus:outline-none focus:border-emerald-500/50 transition-all resize-none"></textarea>
                     </div>
                     <div id="formPolitica" class="hidden space-y-4">
@@ -185,10 +185,10 @@
                         </div>
                     </div>
                     <div>
-                        <label class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2 ml-1">Imagen</label>
+                        <label for="formImagen" class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2 ml-1">Imagen</label>
                         <div class="flex flex-col gap-4">
                             <div id="previewContainer" class="hidden h-32 w-full rounded-2xl overflow-hidden border border-white/10 relative">
-                                <img id="imagePreview" src="#" class="w-full h-full object-cover">
+                                <img id="imagePreview" alt="Vista previa de la imagen" src="#" class="w-full h-full object-cover">
                                 <button type="button" onclick="removeImage()" class="absolute top-2 right-2 bg-red-500 text-white w-6 h-6 rounded-full text-xs">×</button>
                             </div>
                             <input type="file" name="imagen" id="formImagen" accept="image/*" class="w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-emerald-500/10 file:text-emerald-400 hover:file:bg-emerald-500/20 cursor-pointer">
@@ -241,8 +241,9 @@
         const previewContainer = document.getElementById('previewContainer');
 
         // Lógica de Formularios Crear/Editar
-        function openModal(mode, id = '', nombre = '', desc = '', img = '', estado = 'activo', roles = '', boton = null) {
-            document.getElementById('formUbicacion').value = boton?.dataset.ubicacion ?? '';
+        function openModal(mode, boton = null) {
+            const { id = '', nombre = '', descripcion = '', imagen: img = '', estado = 'activo', roles = '' } = boton?.dataset ?? {};
+document.getElementById('formUbicacion').value = boton?.dataset.ubicacion ?? '';
             document.getElementById('formCapacidad').value = boton?.dataset.capacidad ?? '';
             document.getElementById('formDotacion').value = boton?.dataset.dotacion ?? '';
             modal.classList.remove('hidden');
@@ -261,8 +262,8 @@
                 document.getElementById('modalTitle').innerText = 'Editar Instalación';
                 form.action = `/editar_instalacion/${id}`;
                 document.getElementById('formNombre').value = nombre;
-                document.getElementById('formDesc').value = desc;
-                if(img && img !== 'None' && img !== '') {
+                document.getElementById('formDesc').value = descripcion;
+                if (img) {
                     let imgSrc = (img.startsWith('http') || img.startsWith('/static')) ? img : `/static/uploads/instalaciones/${img}`;
                     showPreview(imgSrc);
                 } else {

@@ -231,7 +231,7 @@ def test_admin_uploads_csv_program(people):
 
 def test_program_page_requires_admin(people):
     login_as(people, 'user', 11)
-    assert people.post('/reservas/recurrentes', data={}).status_code == 302
+    assert people.post('/reservas/recurrentes', data={}).status_code == 403
     login_as(people, 'admin', 1)
     assert people.post('/reservas/recurrentes', data={'tipo': 'x'}).status_code == 400
 

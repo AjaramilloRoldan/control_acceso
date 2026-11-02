@@ -4,6 +4,7 @@ import os
 from logging.handlers import RotatingFileHandler
 
 import bcrypt
+from flask import has_request_context, session
 
 security_logger = logging.getLogger('security')
 
@@ -32,16 +33,24 @@ def configure_security_log():
     security_handler.setFormatter(formatter)
     security_logger.addHandler(security_handler)
 
+def current_actor():
+    if has_request_context() and 'user_id' in session:
+        return f"{session.get('role')}:{session['user_id']}"
+    return None
+
 def log_security_event(event_type, user_id=None, details=None, ip=None):
     """Registra eventos de seguridad"""
     message = f"{event_type}"
+    actor = current_actor()
+    if actor:
+        message += f" | Actor: {actor}"
     if user_id:
         message += f" | User ID: {user_id}"
     if details:
         message += f" | Details: {details}"
     if ip:
         message += f" | IP: {ip}"
-    security_logger.info(message)
+    security_logger.info(message.replace('\r', ' ').replace('\n', ' '))
 
 # --- UTILIDADES DE PASSWORD CON BCRYPT ---
 

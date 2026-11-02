@@ -230,6 +230,6 @@ def test_report_page_validates_period(client, query, status):
 
 def test_reports_require_admin(client):
     login_as(client, 'user', 10)
-    assert client.get('/reportes').status_code == 302
+    assert client.get('/reportes').status_code == 403
     with app.app_context():
         assert Reserva.query.count() == 1

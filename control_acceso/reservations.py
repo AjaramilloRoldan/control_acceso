@@ -3,6 +3,7 @@ import io
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 
+from . import config
 from .extensions import db
 from .formatos import fecha_local
 from .models import Instalacion, Reserva, User
@@ -12,7 +13,6 @@ HORA_APERTURA = time(6, 0)
 HORA_CIERRE = time(22, 0)
 DURACION_MINIMA_MINUTOS = 30
 DURACION_MAXIMA_MINUTOS = 240
-PLAZO_MODIFICACION_MINUTOS = 60
 MOTIVO_MAXIMO = 200
 DOMINGO = 6
 ROLES_CON_RESERVA = ('estudiante', 'docente')
@@ -144,7 +144,7 @@ def crear_reserva(usuario, instalacion_id, fecha, inicio, fin, motivo, ahora):
 def modificar_reserva(reserva, fecha, inicio, fin, ahora):
     if reserva.estado != 'activa':
         raise ReservaError('La reserva no está vigente', 409)
-    if ahora > reserva.inicio - timedelta(minutes=PLAZO_MODIFICACION_MINUTOS):
+    if ahora > reserva.inicio - timedelta(minutes=config.PLAZO_MODIFICACION_MINUTOS):
         raise ReservaError('Plazo de modificación vencido', 409)
     instalacion = lock_instalacion(reserva.instalacion_id)
     check_policy(reserva.usuario, instalacion)

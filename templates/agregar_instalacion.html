@@ -20,13 +20,13 @@
         <form action="/agregar_instalacion" method="POST" enctype="multipart/form-data" class="glass p-10 rounded-[2.5rem] space-y-6">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
             <div>
-                <label class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-3 ml-1">Nombre del Espacio</label>
-                <input type="text" name="nombre" required placeholder="Ej: Laboratorio de Redes" class="w-full bg-slate-900 border border-white/5 rounded-2xl px-6 py-4 outline-none focus:border-blue-500/50 transition-all">
+                <label for="nombre" class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-3 ml-1">Nombre del Espacio</label>
+                <input type="text" id="nombre" name="nombre" required placeholder="Ej: Laboratorio de Redes" class="w-full bg-slate-900 border border-white/5 rounded-2xl px-6 py-4 outline-none focus:border-blue-500/50 transition-all">
             </div>
             
             <div>
-                <label class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-3 ml-1">Descripción</label>
-                <textarea name="descripcion" rows="3" placeholder="Detalles de la ubicación o recursos..." class="w-full bg-slate-900 border border-white/5 rounded-2xl px-6 py-4 outline-none focus:border-blue-500/50 transition-all resize-none"></textarea>
+                <label for="descripcion" class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-3 ml-1">Descripción</label>
+                <textarea id="descripcion" name="descripcion" rows="3" placeholder="Detalles de la ubicación o recursos..." class="w-full bg-slate-900 border border-white/5 rounded-2xl px-6 py-4 outline-none focus:border-blue-500/50 transition-all resize-none"></textarea>
             </div>
 
             <div>
@@ -35,7 +35,7 @@
                     <input type="file" name="imagen" id="imgInput" accept="image/*" class="hidden">
                     <label for="imgInput" class="cursor-pointer block w-full bg-slate-900 border-2 border-dashed border-white/10 rounded-2xl p-8 text-center hover:border-blue-500/40 transition-all overflow-hidden relative">
                         <div id="previewContainer" class="hidden absolute inset-0">
-                            <img id="previewImg" class="w-full h-full object-cover">
+                            <img id="previewImg" alt="Vista previa de la imagen" class="w-full h-full object-cover">
                         </div>
                         <div id="uploadPrompt" class="space-y-2">
                             <span class="text-3xl">🖼️</span>

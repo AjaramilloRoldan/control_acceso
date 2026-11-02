@@ -9,6 +9,7 @@ from ..extensions import db, limiter
 from ..metrics import ULTIMOS_ACCESOS_METRICAS, calcular_disponibilidad, percentil_95
 from ..formatos import DIAS_SEMANA, fecha_hora_local
 from ..models import AccessLog, Dispositivo, Instalacion, Reserva, User
+from ..permisos import deny_json, deny_page
 from ..reports import FILAS_POR_PAGINA, PeriodoInvalido, consulta_bitacora, reporte_consulta_bitacora, to_csv
 from .reportes import parse_filter_date
 
@@ -18,7 +19,7 @@ ACCESOS_EN_PANEL = 10
 
 @bp.route('/dashboard')
 def dashboard():
-    if session.get('role') != 'admin': return redirect(url_for('auth.login'))
+    if session.get('role') != 'admin': return deny_page()
     
     conn = database.get_db()
     cursor = conn.cursor(dictionary=True)
@@ -45,7 +46,7 @@ def dashboard():
 
 @bp.route('/api/stats')
 def get_stats():
-    if session.get('role') != 'admin': return jsonify({"error": "Unauthorized"}), 401
+    if session.get('role') != 'admin': return deny_json()
     conn = database.get_db()
     cursor = conn.cursor(dictionary=True)
     labels, autorizados, denegados = [], [], []
@@ -108,7 +109,7 @@ def get_stats():
 
 @bp.route('/api/denegados')
 def get_denegados():
-    if session.get('role') != 'admin': return jsonify({"error": "Unauthorized"}), 401
+    if session.get('role') != 'admin': return deny_json()
     conn = database.get_db()
     cursor = conn.cursor(dictionary=True)
     
@@ -139,7 +140,7 @@ def filas_de_acceso(registros):
 @bp.route('/api/monitoreo')
 @limiter.exempt
 def monitoreo():
-    if session.get('role') != 'admin': return jsonify({"error": "Unauthorized"}), 401
+    if session.get('role') != 'admin': return deny_json()
 
     ahora = hora_actual()
     conteo = dict(db.session.query(AccessLog.success, func.count(AccessLog.id))

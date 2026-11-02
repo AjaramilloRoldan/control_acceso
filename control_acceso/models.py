@@ -52,6 +52,8 @@ class Dispositivo(db.Model):
 
 class AccessLog(db.Model):
     __tablename__ = 'access_log'
+    __table_args__ = (db.Index('idx_access_log_instalacion_fecha', 'instalacion_id', 'timestamp'),
+                      db.Index('idx_access_log_fecha', 'timestamp'))
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     rfid_uid = db.Column(db.String(50), nullable=True)
@@ -90,6 +92,7 @@ class Notificacion(db.Model):
 
 class Reserva(db.Model):
     __tablename__ = 'reservas'
+    __table_args__ = (db.Index('idx_reservas_instalacion_fecha', 'instalacion_id', 'fecha_reserva'),)
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     instalacion_id = db.Column(db.Integer, db.ForeignKey('instalaciones.id'), nullable=False)
