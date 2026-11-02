@@ -66,10 +66,11 @@ class AccessLog(db.Model):
 class Instalacion(db.Model):
     __tablename__ = 'instalaciones'
     id = db.Column(db.Integer, primary_key=True)
-    nombre = db.Column(db.String(100), nullable=False)
+    nombre = db.Column(db.String(100), unique=True, nullable=False)
     descripcion = db.Column(db.Text, nullable=True)
     imagen = db.Column(db.String(255), nullable=True)
     ubicacion = db.Column(db.String(45), nullable=True)
+    capacidad = db.Column(db.Integer, nullable=True)
     dotacion = db.Column(db.String(255), nullable=True)
     estado = db.Column(db.String(20), nullable=False, default='activo')
     roles_permitidos = db.Column(db.String(100), nullable=True)

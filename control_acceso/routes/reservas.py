@@ -29,7 +29,16 @@ def instalaciones():
     if 'user_id' not in session: return redirect(url_for('auth.login'))
 
     usuario = session_user()
-    lista_inst = Instalacion.query.filter_by(estado='activo').all()
+    filtros = {clave: request.args.get(clave, '').strip() for clave in ('capacidad_min', 'dotacion', 'ubicacion')}
+    espacios = Instalacion.query.filter_by(estado='activo')
+    capacidad_min = request.args.get('capacidad_min', type=int)
+    if capacidad_min:
+        espacios = espacios.filter(Instalacion.capacidad >= capacidad_min)
+    if filtros['dotacion']:
+        espacios = espacios.filter(Instalacion.dotacion.contains(filtros['dotacion'], autoescape=True))
+    if filtros['ubicacion']:
+        espacios = espacios.filter(Instalacion.ubicacion.contains(filtros['ubicacion'], autoescape=True))
+    lista_inst = espacios.all()
     mis_reservas = []
     reservables = set()
     if usuario:
@@ -43,6 +52,7 @@ def instalaciones():
 
     return render_template('instalaciones.html',
                            instalaciones=lista_inst,
+                           filtros=filtros,
                            mis_reservas=mis_reservas,
                            reservables=reservables,
                            gestiona_reservas=bool(usuario and usuario.rol in ROLES_CON_RESERVA),

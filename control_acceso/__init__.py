@@ -22,6 +22,8 @@ def create_app():
     app = Flask(__name__, root_path=PROJECT_ROOT)
     app.secret_key = config.require_env('SECRET_KEY')
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+    app.config['PERMANENT_SESSION_LIFETIME'] = config.DURACION_SESION
+    app.config['SESSION_REFRESH_EACH_REQUEST'] = False
     app.config['UPLOAD_FOLDER'] = config.UPLOAD_FOLDER
     app.config['SQLALCHEMY_DATABASE_URI'] = config.database_uri()
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
