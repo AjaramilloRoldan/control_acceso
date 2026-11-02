@@ -53,6 +53,7 @@ def client(monkeypatch):
     admin_row = {'id': 1, 'username': 'admin', 'password': hash_password(ADMIN_PASSWORD)}
     monkeypatch.setattr(database, 'get_db', lambda: FakeConnection(admin_row))
     with app.app_context():
+        assert db.engine.url.get_backend_name() == 'sqlite', 'Las pruebas solo pueden correr sobre SQLite'
         db.drop_all()
         db.create_all()
         db.session.add(User(id=10, name='Ana', username='ana', email='ana@ucp.edu.co', password=hash_password('clave123'), autorizacion_datos=datetime(2026, 1, 1), version_aviso='1.0'))

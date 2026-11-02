@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 
 from .extensions import db
+from .formatos import fecha_local
 from .models import Instalacion, Reserva, User
 from .notifications import notificar, notificar_reserva
 
@@ -232,7 +233,7 @@ def programar_series(series, ahora):
         primera = None
         for fecha in occurrences(serie):
             if find_conflict(serie.instalacion_id, fecha, serie.hora_inicio, serie.hora_fin):
-                conflictos.append(fecha.isoformat())
+                conflictos.append(fecha)
                 continue
             reserva = Reserva(user_id=serie.usuario_id, instalacion_id=serie.instalacion_id, fecha_reserva=fecha,
                               hora_inicio=serie.hora_inicio, hora_fin=serie.hora_fin, tipo=serie.tipo)
@@ -242,13 +243,13 @@ def programar_series(series, ahora):
             reserva.id_recurrencia = primera.id
             creadas += 1
     if conflictos:
-        raise ReservaError('Conflicto en las fechas: ' + ', '.join(sorted(set(conflictos))), 409)
+        raise ReservaError('Conflicto en las fechas: ' + ', '.join(fecha_local(fecha) for fecha in sorted(set(conflictos))), 409)
     if not creadas:
         raise ReservaError('El periodo no incluye ese día de la semana', 400)
     db.session.commit()
     for serie in series:
         notificar(db.session.get(User, serie.usuario_id),
                   f'Se programó tu horario en {instalaciones[serie.instalacion_id].nombre}: '
-                  f"del {serie.fecha_inicial} al {serie.fecha_final}, "
+                  f"del {fecha_local(serie.fecha_inicial)} al {fecha_local(serie.fecha_final)}, "
                   f"de {serie.hora_inicio.strftime('%H:%M')} a {serie.hora_fin.strftime('%H:%M')}.")
     return creadas

@@ -69,7 +69,7 @@
                 <div class="glass-card p-5 rounded-2xl flex justify-between items-center group hover:border-emerald-500/30 transition-all text-sm">
                     <div>
                         <h4 class="text-white font-bold group-hover:text-emerald-400 transition-colors">{{ res.instalacion.nombre }}</h4>
-                        <p class="text-[10px] text-slate-500 uppercase font-bold tracking-widest mt-1">{{ res.fecha_reserva.strftime('%d %B, %Y') }}</p>
+                        <p class="text-[10px] text-slate-500 uppercase font-bold tracking-widest mt-1">{{ res.fecha_reserva | fecha }}</p>
                         <p class="text-sm text-emerald-400 font-semibold mt-1">{{ res.hora_inicio.strftime('%H:%M') }} — {{ res.hora_fin.strftime('%H:%M') }}</p>
                     </div>
                     {% if gestiona_reservas %}

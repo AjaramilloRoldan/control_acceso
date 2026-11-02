@@ -54,7 +54,7 @@
         >
           <p class="text-sm">{{ notificacion.mensaje }}</p>
           <p class="text-xs text-slate-500 mt-1">
-            {{ notificacion.creado_en.strftime('%Y-%m-%d %H:%M') }}
+            {{ notificacion.creado_en | fecha_hora(False) }}
           </p>
         </li>
         {% else %}
