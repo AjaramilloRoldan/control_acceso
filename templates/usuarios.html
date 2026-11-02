@@ -120,9 +120,35 @@
                         Comunidad Registrada
                     </h2>
                     <span class="px-4 py-1 bg-emerald-500/10 text-emerald-400 text-xs font-bold rounded-full border border-emerald-500/20 uppercase">
-                        {{ usuarios|length }} Usuarios Totales
+                        {{ paginacion.total }} Usuarios
                     </span>
                 </div>
+
+                <form method="GET" class="glass rounded-2xl p-4 mb-6 grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+                    <div class="md:col-span-2">
+                        <label for="q" class="block text-[10px] uppercase font-bold text-slate-500 mb-1">Buscar</label>
+                        <input type="search" id="q" name="q" value="{{ filtros.q }}" placeholder="Nombre, apellido, identificación o correo" class="w-full px-3 py-2.5 bg-slate-900 border border-white/10 rounded-xl text-sm text-white">
+                    </div>
+                    <div>
+                        <label for="rol" class="block text-[10px] uppercase font-bold text-slate-500 mb-1">Rol</label>
+                        <select id="rol" name="rol" class="w-full px-3 py-2.5 bg-slate-900 border border-white/10 rounded-xl text-sm text-white">
+                            <option value="">Todos</option>
+                            {% for rol in roles %}
+                            <option value="{{ rol }}"{{ ' selected' if filtros.rol == rol }}>{{ rol | capitalize }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label for="estado" class="block text-[10px] uppercase font-bold text-slate-500 mb-1">Estado</label>
+                        <select id="estado" name="estado" class="w-full px-3 py-2.5 bg-slate-900 border border-white/10 rounded-xl text-sm text-white">
+                            <option value="activo"{{ ' selected' if filtros.estado == 'activo' }}>Activos</option>
+                            <option value="inactivo"{{ ' selected' if filtros.estado == 'inactivo' }}>Inactivos</option>
+                            <option value="todos"{{ ' selected' if filtros.estado == 'todos' }}>Todos</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-900 rounded-xl text-sm font-bold transition-colors">Filtrar</button>
+                    <a href="/usuarios" class="py-2.5 text-center bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-sm font-bold transition-colors">Limpiar</a>
+                </form>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {% for usuario in usuarios %}
@@ -150,6 +176,7 @@
                                     </div>
                                 </div>
 
+                                {% if usuario.estado == 'activo' %}
                                 <div class="tooltip-container">
                                     <button onclick="openConfirmDelete('/eliminar_usuario/{{ usuario.id }}')" class="p-2.5 bg-slate-800/50 hover:bg-red-500/20 text-red-400 rounded-xl transition-all border border-white/5 flex items-center justify-center">
                                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -160,6 +187,7 @@
                                         <span class="px-3 py-1.5 bg-red-600 text-white text-[10px] font-extrabold rounded-lg shadow-xl whitespace-nowrap uppercase tracking-wider">Eliminar</span>
                                     </div>
                                 </div>
+                                {% endif %}
                             </div>
                         </div>
 
@@ -172,7 +200,9 @@
                                 <span class="text-amber-400 font-bold">Sin tarjeta</span>
                                 {% endif %}
                             </div>
-                            {% if not usuario.autorizacion_datos %}
+                            {% if usuario.estado != 'activo' %}
+                            <p class="text-xs font-bold text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2">Usuario inactivo</p>
+                            {% elif not usuario.autorizacion_datos %}
                             <p class="text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2">Autorización de datos pendiente</p>
                             {% endif %}
                             <div class="flex items-center justify-between text-sm px-1">
@@ -181,8 +211,22 @@
                             </div>
                         </div>
                     </div>
+                    {% else %}
+                    <p class="md:col-span-2 lg:col-span-3 p-10 text-center text-slate-500">Sin usuarios para estos filtros</p>
                     {% endfor %}
                 </div>
+
+                {% if paginacion.pages > 1 %}
+                <nav class="flex items-center justify-between gap-4 text-sm mt-6">
+                    {% if paginacion.has_prev %}
+                    <a href="{{ url_for('usuarios.usuarios', pagina=paginacion.prev_num, **filtros) }}" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl font-bold">Anterior</a>
+                    {% else %}<span></span>{% endif %}
+                    <span class="text-slate-500">Página {{ paginacion.page }} de {{ paginacion.pages }}</span>
+                    {% if paginacion.has_next %}
+                    <a href="{{ url_for('usuarios.usuarios', pagina=paginacion.next_num, **filtros) }}" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl font-bold">Siguiente</a>
+                    {% else %}<span></span>{% endif %}
+                </nav>
+                {% endif %}
             </section>
 
             <section id="registro-seccion" class="glass p-8 md:p-10 rounded-[2.5rem] shadow-2xl relative overflow-hidden scroll-mt-24">

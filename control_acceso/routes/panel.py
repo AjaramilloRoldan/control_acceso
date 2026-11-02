@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from flask import Blueprint, abort, jsonify, redirect, render_template, request, session, url_for
+from flask import Blueprint, Response, abort, jsonify, redirect, render_template, request, session, url_for
 from sqlalchemy import func
 
 from .. import database
@@ -8,7 +8,7 @@ from ..clock import hora_actual
 from ..extensions import db, limiter
 from ..metrics import ULTIMOS_ACCESOS_METRICAS, calcular_disponibilidad, percentil_95
 from ..models import AccessLog, Dispositivo, Instalacion, Reserva, User
-from ..reports import FILAS_POR_PAGINA, PeriodoInvalido, consulta_bitacora
+from ..reports import FILAS_POR_PAGINA, PeriodoInvalido, consulta_bitacora, reporte_consulta_bitacora, to_csv
 from .reportes import parse_filter_date
 
 bp = Blueprint('panel', __name__)
@@ -21,7 +21,7 @@ def dashboard():
     
     conn = database.get_db()
     cursor = conn.cursor(dictionary=True)
-    cursor.execute("SELECT COUNT(*) as total FROM users")
+    cursor.execute("SELECT COUNT(*) as total FROM users WHERE estado = 'activo'")
     total_users = cursor.fetchone()['total']
     
     hoy = hora_actual().strftime('%Y-%m-%d')
@@ -171,7 +171,7 @@ def historial():
             abort(403)
         usuario_id = session['user_id']
 
-    filtros = {clave: valor for clave, valor in request.args.items() if valor and clave != 'pagina'}
+    filtros = {clave: valor for clave, valor in request.args.items() if valor and clave not in ('pagina', 'formato')}
     contexto = {'es_admin': rol == 'admin', 'filtros': filtros, 'espacios': Instalacion.query.order_by(Instalacion.nombre).all(),
                 'motivos': [fila[0] for fila in db.session.query(AccessLog.motivo).filter(AccessLog.motivo.isnot(None)).distinct().order_by(AccessLog.motivo)],
                 'usuarios': User.query.order_by(User.name).all() if rol == 'admin' else []}
@@ -183,7 +183,11 @@ def historial():
     except PeriodoInvalido as error:
         return render_template('historial.html', error=str(error), logs=[], paginacion=None, **contexto), 400
 
-    paginacion = consulta_bitacora(desde, hasta, request.args.get('id_espacios', type=int), usuario_id,
-                                   request.args.get('resultado'), request.args.get('motivo') or None) \
-        .paginate(page=request.args.get('pagina', 1, type=int), per_page=FILAS_POR_PAGINA, error_out=False)
+    consulta = consulta_bitacora(desde, hasta, request.args.get('id_espacios', type=int), usuario_id,
+                                 request.args.get('resultado'), request.args.get('motivo') or None)
+    if request.args.get('formato') == 'csv':
+        return Response(to_csv(reporte_consulta_bitacora(consulta)), content_type='text/csv; charset=utf-8',
+                        headers={'Content-Disposition': 'attachment; filename=bitacora.csv'})
+
+    paginacion = consulta.paginate(page=request.args.get('pagina', 1, type=int), per_page=FILAS_POR_PAGINA, error_out=False)
     return render_template('historial.html', error=None, logs=filas_de_acceso(paginacion.items), paginacion=paginacion, **contexto)

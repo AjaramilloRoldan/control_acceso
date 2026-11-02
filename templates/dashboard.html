@@ -351,16 +351,30 @@
                 return;
             }
             
-            table.innerHTML = data.denegados.map(d => `
-                <tr class="border-b border-white/5 hover:bg-white/5 transition-all">
-                    <td class="py-3 font-mono text-xs text-amber-400">${d.rfid_uid}</td>
-                    <td class="py-3 text-slate-300">${d.usuario}</td>
-                    <td class="py-3 text-slate-500 text-xs">${new Date(d.fecha).toLocaleString('es-ES')}</td>
-                    <td class="py-3 text-right">
-                        <button onclick="registrarTarjeta('${d.rfid_uid}')" class="px-3 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 rounded-lg text-xs font-bold uppercase tracking-widest transition-all">Registrar</button>
-                    </td>
-                </tr>
-            `).join('');
+            table.replaceChildren(...data.denegados.map(d => {
+                const tr = document.createElement('tr');
+                tr.className = 'border-b border-white/5 hover:bg-white/5 transition-all';
+                const celdas = [
+                    [d.rfid_uid, 'py-3 font-mono text-xs text-amber-400'],
+                    [d.usuario, 'py-3 text-slate-300'],
+                    [new Date(d.fecha).toLocaleString('es-ES'), 'py-3 text-slate-500 text-xs'],
+                ];
+                celdas.forEach(([texto, clase]) => {
+                    const td = document.createElement('td');
+                    td.className = clase;
+                    td.textContent = texto;
+                    tr.appendChild(td);
+                });
+                const accion = document.createElement('td');
+                accion.className = 'py-3 text-right';
+                const boton = document.createElement('button');
+                boton.className = 'px-3 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 rounded-lg text-xs font-bold uppercase tracking-widest transition-all';
+                boton.textContent = 'Registrar';
+                boton.addEventListener('click', () => registrarTarjeta(d.rfid_uid));
+                accion.appendChild(boton);
+                tr.appendChild(accion);
+                return tr;
+            }));
         }
 
         function registrarTarjeta(uid) {
