@@ -7,3 +7,6 @@ EjecutableHardware/secrets.h
 .pytest_cache/
 *.mwb.bak
 logs/
+.coverage
+*.sql
+*.sql.gz
