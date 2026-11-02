@@ -142,7 +142,7 @@
                 {{ lector.estado | capitalize }}
               </td>
               <td class="p-4 text-slate-400">
-                {{ lector.ultima_conexion.strftime('%Y-%m-%d %H:%M') if
+                {{ lector.ultima_conexion | fecha_hora(False) if
                 lector.ultima_conexion else 'Sin conexiones' }}
               </td>
               <td class="p-4 text-right">

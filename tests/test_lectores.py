@@ -109,7 +109,7 @@ def test_log_is_paginated_newest_first(client):
     segunda = client.get('/historial?pagina=2')
 
     assert primera.count('class="log-row') == FILAS_POR_PAGINA
-    assert primera.index('2030-01-23') < primera.index('2030-01-22')
+    assert primera.index('23/01/2030') < primera.index('22/01/2030')
     assert rows(segunda) == 3
 
 

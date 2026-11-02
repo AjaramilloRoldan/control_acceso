@@ -176,7 +176,7 @@ def test_series_with_conflict_creates_nothing(people):
         with pytest.raises(ReservaError) as error:
             programar_series([serie], AHORA)
         db.session.rollback()
-        assert error.value.status == 409 and '2030-03-05' in error.value.message
+        assert error.value.status == 409 and '05/03/2030' in error.value.message
         assert Reserva.query.filter_by(user_id=20).count() == 0
 
 

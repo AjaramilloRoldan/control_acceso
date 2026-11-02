@@ -4,6 +4,7 @@ from collections import Counter, defaultdict
 from datetime import date, datetime, time, timedelta
 
 from .extensions import db
+from .formatos import fecha_hora_local, fecha_local
 from .models import AccessLog, Instalacion, Reserva, User
 from .reservations import HORA_APERTURA, HORA_CIERRE, DOMINGO
 
@@ -77,8 +78,8 @@ def reporte_ocupacion(desde, hasta, instalacion_id):
         total_reservadas += reservadas
         total_con_acceso += con_acceso
         total_habiles += habiles
-        filas.append([dia.isoformat(), decimal_es(reservadas), con_acceso, habiles, decimal_es(ocupacion)])
-        puntos.append((dia.isoformat(), ocupacion, f'{dia.isoformat()}: {decimal_es(ocupacion)} %'))
+        filas.append([fecha_local(dia), decimal_es(reservadas), con_acceso, habiles, decimal_es(ocupacion)])
+        puntos.append((fecha_local(dia), ocupacion, f'{fecha_local(dia)}: {decimal_es(ocupacion)} %'))
 
     if not total_reservadas and not total_con_acceso:
         filas = []
@@ -121,7 +122,7 @@ def uids_marcados(momentos_por_uid):
         separacion = DENEGACIONES_PARA_MARCAR - 1
         for inicio, fin in zip(ordenados, ordenados[separacion:]):
             if fin - inicio <= VENTANA_DENEGACIONES:
-                marcados.append([uid, inicio.strftime('%Y-%m-%d %H:%M:%S')])
+                marcados.append([uid, fecha_hora_local(inicio)])
                 break
     return marcados
 
@@ -171,7 +172,7 @@ def consulta_bitacora(desde=None, hasta=None, instalacion_id=None, user_id=None,
 
 def reporte_consulta_bitacora(consulta):
     filas = [[
-        acceso.id, acceso.timestamp.strftime('%Y-%m-%d %H:%M:%S'), usuario or 'No registrado', acceso.rfid_uid or '',
+        acceso.id, fecha_hora_local(acceso.timestamp), usuario or 'No registrado', acceso.rfid_uid or '',
         espacio or 'Sin espacio', 'Autorizado' if acceso.success else 'Denegado', acceso.motivo or '',
     ] for acceso, usuario, espacio in consulta]
     return {'tablas': [{'titulo': 'Bitácora de accesos', 'columnas': COLUMNAS_BITACORA, 'filas': filas}]}
@@ -181,7 +182,7 @@ def reporte_bitacora(desde, hasta, instalacion_id=None):
     espacios = nombres_de_espacios()
     usuarios = dict(db.session.query(User.id, User.name).all())
     filas = [[
-        acceso.id, acceso.timestamp.strftime('%Y-%m-%d %H:%M:%S'), usuarios.get(acceso.user_id, 'No registrado'),
+        acceso.id, fecha_hora_local(acceso.timestamp), usuarios.get(acceso.user_id, 'No registrado'),
         acceso.rfid_uid or '', espacios.get(acceso.instalacion_id, 'Sin espacio'),
         'Autorizado' if acceso.success else 'Denegado', acceso.motivo or '',
     ] for acceso in reversed(accesos_del_periodo(desde, hasta, None, instalacion_id))]

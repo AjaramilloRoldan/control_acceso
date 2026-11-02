@@ -156,7 +156,7 @@
                 {{ serie.hora_inicio.strftime('%H:%M') }} — {{
                 serie.hora_fin.strftime('%H:%M') }}
               </td>
-              <td class="p-4">{{ serie.desde }} a {{ serie.hasta }}</td>
+              <td class="p-4">{{ serie.desde | fecha }} a {{ serie.hasta | fecha }}</td>
               <td class="p-4">{{ serie.ocurrencias }}</td>
             </tr>
             {% else %}
