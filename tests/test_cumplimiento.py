@@ -2,6 +2,7 @@ import json
 import pathlib
 import re
 from datetime import date, datetime, time
+from decimal import Decimal
 
 import pytest
 
@@ -11,7 +12,7 @@ from app import app
 import depurar_bitacora as script_depuracion
 from control_acceso import database
 from control_acceso.extensions import db
-from control_acceso.formatos import fecha_hora_local, fecha_local
+from control_acceso.formatos import DIAS_SEMANA, fecha_hora_local, fecha_local
 from control_acceso.models import AccessLog, Instalacion, Notificacion, Reserva
 from control_acceso.notifications import describir_reserva
 from control_acceso.reports import reporte_bitacora, to_csv
@@ -130,6 +131,34 @@ def test_reservation_error_contract(client):
     check_contract(respuesta, '/reservar')
 
 
+def test_stats_contract(client, monkeypatch):
+    class Cursor:
+        def execute(self, consulta, parametros=None):
+            self.consulta = consulta
+
+        def fetchone(self):
+            return {'c': 1, 'total': 2, 'ok': 1, 'avg_reconexion': None}
+
+        def fetchall(self):
+            if 'tiempo_lectura_ms' in self.consulta:
+                return [{'tiempo_lectura_ms': 120}]
+            return [{'nombre': 'Squash', 'exitos': Decimal(2), 'fallas': Decimal(1)}]
+
+        def close(self):
+            pass
+
+    class Conexion:
+        cursor = lambda self, dictionary=False: Cursor()
+        close = lambda self: None
+
+    monkeypatch.setattr(database, 'get_db', Conexion)
+    login_as(client, 'admin', 1)
+
+    respuesta = client.get('/api/stats')
+
+    check_contract(respuesta, '/api/stats', 'get')
+    assert respuesta.get_json()['labels'][-1] in DIAS_SEMANA
+
 def test_denied_dates_are_local_text(client, monkeypatch):
     filas = [{'id': 1, 'rfid_uid': 'aabbccdd', 'fecha': datetime(2030, 1, 7, 15, 30, 5), 'usuario': 'Ana'}]
 
@@ -244,6 +273,4 @@ def test_purge_is_recorded_in_security_log(client, monkeypatch):
 
 @pytest.mark.parametrize('dia, esperado', [(date(2030, 1, 7), 'Lun'), (date(2030, 1, 13), 'Dom')])
 def test_week_labels_are_spanish(dia, esperado):
-    from control_acceso.formatos import DIAS_SEMANA
-
     assert DIAS_SEMANA[dia.weekday()] == esperado
