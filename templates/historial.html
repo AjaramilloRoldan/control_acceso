@@ -112,6 +112,7 @@
                     {% if not es_admin %}
                     <a href="/mis_reservas" class="p-2.5 bg-slate-900 hover:bg-slate-800 text-slate-400 rounded-xl border border-white/5 transition-all">Volver a mis reservas</a>
                     {% endif %}
+                    <a href="{{ url_for('panel.historial', formato='csv', **filtros) }}" class="p-2.5 bg-slate-900 hover:bg-slate-800 text-slate-400 rounded-xl border border-white/5 transition-all">CSV de esta consulta 📥</a>
                     <button onclick="exportToExcel()" class="p-2.5 bg-slate-900 hover:bg-slate-800 text-slate-400 rounded-xl border border-white/5 transition-all">Excel de esta página 📊</button>
                     <button onclick="exportToPDF()" class="p-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 rounded-xl border border-emerald-500/20 transition-all">PDF de esta página 📄</button>
                 </div>

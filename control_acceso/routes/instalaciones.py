@@ -2,6 +2,7 @@ import os
 from datetime import datetime
 
 from flask import Blueprint, current_app, flash, jsonify, redirect, render_template, request, session, url_for
+from sqlalchemy.exc import IntegrityError
 from werkzeug.utils import secure_filename
 
 from ..clock import hora_actual
@@ -13,6 +14,9 @@ bp = Blueprint('instalaciones', __name__)
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp'}
 ESTADOS_OPERATIVOS = ('activo', 'mantenimiento', 'fuera_servicio')
+CAPACIDAD_MINIMA = 1
+CAPACIDAD_MAXIMA = 500
+MENSAJE_NOMBRE_REPETIDO = 'Error: Ya existe un espacio con ese nombre'
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -22,6 +26,21 @@ def read_roles(form):
     if not roles or not set(roles) <= set(ROLES_USUARIO):
         return None, 'Error: Selecciona al menos un rol válido'
     return (None if set(roles) == set(ROLES_USUARIO) else ','.join(roles)), None
+
+def read_space_fields(form):
+    campos = {
+        'nombre': form.get('nombre', '').strip(),
+        'ubicacion': form.get('ubicacion', '').strip(),
+        'dotacion': form.get('dotacion', '').strip(),
+        'capacidad': form.get('capacidad', type=int),
+    }
+    if not campos['nombre'] or len(campos['nombre']) > 100:
+        return None, 'Error: El nombre es obligatorio, con máximo 100 caracteres'
+    if len(campos['ubicacion']) > 45 or len(campos['dotacion']) > 255:
+        return None, 'Error: La ubicación admite 45 caracteres y la dotación 255'
+    if campos['capacidad'] is None or not CAPACIDAD_MINIMA <= campos['capacidad'] <= CAPACIDAD_MAXIMA:
+        return None, 'Error: La capacidad debe estar entre 1 y 500'
+    return campos, None
 
 def notify_affected_reservations(inst):
     hoy = hora_actual().date()
@@ -44,7 +63,11 @@ def admin_instalaciones():
 def crear_instalacion():
     if session.get('role') != 'admin': return jsonify({"error": "No autorizado"}), 403
     
-    nombre = request.form.get('nombre')
+    campos, error = read_space_fields(request.form)
+    if error:
+        flash(error, 'error')
+        return redirect(url_for('instalaciones.admin_instalaciones'))
+
     descripcion = request.form.get('descripcion')
     file = request.files.get('imagen')
     
@@ -53,9 +76,13 @@ def crear_instalacion():
         filename = secure_filename(f"{datetime.now().timestamp()}_{file.filename}")
         file.save(os.path.join(current_app.config['UPLOAD_FOLDER'], filename))
     
-    nueva = Instalacion(nombre=nombre, descripcion=descripcion, imagen=filename)
-    db.session.add(nueva)
-    db.session.commit()
+    db.session.add(Instalacion(descripcion=descripcion, imagen=filename, **campos))
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        flash(MENSAJE_NOMBRE_REPETIDO, 'error')
+        return redirect(url_for('instalaciones.admin_instalaciones'))
     flash('Instalación creada con éxito', 'success')
     return redirect(url_for('instalaciones.admin_instalaciones'))
 
@@ -66,6 +93,8 @@ def editar_instalacion(id):
     
     estado = request.form.get('estado')
     roles_permitidos, error = read_roles(request.form)
+    campos, error_campos = read_space_fields(request.form)
+    error = error or error_campos
     if estado not in ESTADOS_OPERATIVOS:
         error = 'Error: Estado inválido'
     if error:
@@ -73,7 +102,8 @@ def editar_instalacion(id):
         return redirect(url_for('instalaciones.admin_instalaciones'))
 
     deja_de_operar = inst.estado == 'activo' and estado != 'activo'
-    inst.nombre = request.form.get('nombre')
+    for campo, valor in campos.items():
+        setattr(inst, campo, valor)
     inst.descripcion = request.form.get('descripcion')
     inst.estado = estado
     inst.roles_permitidos = roles_permitidos
@@ -88,8 +118,13 @@ def editar_instalacion(id):
         filename = secure_filename(f"{datetime.now().timestamp()}_{file.filename}")
         file.save(os.path.join(current_app.config['UPLOAD_FOLDER'], filename))
         inst.imagen = filename
-        
-    db.session.commit()
+
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        flash(MENSAJE_NOMBRE_REPETIDO, 'error')
+        return redirect(url_for('instalaciones.admin_instalaciones'))
     if deja_de_operar:
         notify_affected_reservations(inst)
     flash('Instalación actualizada', 'success')

@@ -53,6 +53,7 @@
         <a href="/notificaciones" class="px-6 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-sm font-bold text-emerald-400">Notificaciones{% if sin_leer %} ({{ sin_leer }}){% endif %}</a>
         <a href="/mis_reservas" class="px-6 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-sm font-bold text-emerald-400">Mis reservas</a>
         <a href="/historial" class="px-6 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-sm font-bold text-emerald-400">Mis ingresos</a>
+        <a href="/autorizacion" class="px-6 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-sm font-bold text-emerald-400">Privacidad</a>
         <a href="/logout" class="px-6 py-2 bg-red-500/10 border border-red-500/20 rounded-full text-sm font-bold text-red-400 hover:bg-red-500 hover:text-white transition-all">🚪 Cerrar Sesión</a>
     </header>
 
@@ -91,6 +92,22 @@
         {% endif %}
 
         <h2 class="text-3xl font-extrabold text-white mb-8 tracking-tight">Nuestras Instalaciones</h2>
+        <form method="GET" class="glass-card rounded-2xl p-4 mb-8 grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+            <div>
+                <label for="capacidad_min" class="block text-xs font-bold text-slate-400 mb-1">Capacidad mínima</label>
+                <input type="number" id="capacidad_min" name="capacidad_min" min="1" max="500" value="{{ filtros.capacidad_min }}" class="w-full px-3 py-2.5 bg-slate-900 border border-white/10 rounded-xl text-sm text-white">
+            </div>
+            <div>
+                <label for="dotacion" class="block text-xs font-bold text-slate-400 mb-1">Dotación</label>
+                <input type="text" id="dotacion" name="dotacion" value="{{ filtros.dotacion }}" class="w-full px-3 py-2.5 bg-slate-900 border border-white/10 rounded-xl text-sm text-white">
+            </div>
+            <div>
+                <label for="ubicacion" class="block text-xs font-bold text-slate-400 mb-1">Ubicación</label>
+                <input type="text" id="ubicacion" name="ubicacion" value="{{ filtros.ubicacion }}" class="w-full px-3 py-2.5 bg-slate-900 border border-white/10 rounded-xl text-sm text-white">
+            </div>
+            <button type="submit" class="py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl text-sm font-bold transition-colors">Filtrar</button>
+            <a href="/instalaciones" class="py-2.5 text-center bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-sm font-bold transition-colors">Limpiar</a>
+        </form>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {% for inst in instalaciones %}
             <article class="glass-card rounded-3xl overflow-hidden group hover:-translate-y-2 transition-all duration-300">
@@ -100,6 +117,9 @@
                 </div>
                 <div class="p-8">
                     <h3 class="text-2xl font-bold text-white mb-3">{{ inst.nombre }}</h3>
+                    {% if inst.ubicacion or inst.capacidad or inst.dotacion %}
+                    <p class="text-sm text-slate-400 mb-4">{{ [inst.ubicacion, (inst.capacidad ~ ' personas') if inst.capacidad, inst.dotacion] | select | join(' · ') }}</p>
+                    {% endif %}
                     {% if inst.id in reservables %}
                     <button onclick="openBookingModal('{{ inst.id }}', '{{ inst.nombre }}')" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-4 rounded-2xl shadow-xl active:scale-95 transition-all">
                         Reservar Espacio

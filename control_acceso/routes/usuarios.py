@@ -1,9 +1,11 @@
 from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, session, url_for
+from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 
 from ..clock import hora_actual
 from ..extensions import db
-from ..models import MOTIVOS_REVOCACION, VERSION_AVISO, Reserva, Tarjeta, User
+from ..models import MOTIVOS_REVOCACION, ROLES_USUARIO, VERSION_AVISO, Reserva, Tarjeta, User
+from ..reports import FILAS_POR_PAGINA
 from ..security import hash_password, log_security_event
 from ..validators import (normalize_uid, read_personal_data, validate_name, validate_password, validate_rfid,
                           validate_username)
@@ -61,8 +63,23 @@ def autorizacion():
 @bp.route('/usuarios')
 def usuarios():
     if session.get('role') != 'admin': return redirect(url_for('auth.login'))
-    usuarios_lista = User.query.filter_by(estado='activo').all()
-    return render_template('usuarios.html', usuarios=usuarios_lista)
+    busqueda = request.args.get('q', '').strip()
+    rol = request.args.get('rol', '')
+    estado = request.args.get('estado', 'activo')
+
+    consulta = User.query
+    if busqueda:
+        consulta = consulta.filter(or_(*(campo.contains(busqueda, autoescape=True) for campo in
+                                         (User.name, User.apellido, User.identificacion, User.email))))
+    if rol in ROLES_USUARIO:
+        consulta = consulta.filter(User.rol == rol)
+    if estado in ('activo', 'inactivo'):
+        consulta = consulta.filter(User.estado == estado)
+
+    paginacion = consulta.order_by(User.name, User.id).paginate(
+        page=request.args.get('pagina', 1, type=int), per_page=FILAS_POR_PAGINA, error_out=False)
+    return render_template('usuarios.html', usuarios=paginacion.items, paginacion=paginacion, roles=ROLES_USUARIO,
+                           filtros={'q': busqueda, 'rol': rol, 'estado': estado})
 
 @bp.route('/agregar_usuario', methods=['GET', 'POST'])
 def agregar_usuario():

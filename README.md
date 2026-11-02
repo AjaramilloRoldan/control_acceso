@@ -114,6 +114,7 @@ Para instalaciones existentes, agregar también el modelo de datos y las columna
 python migrate_modelo.py
 python migrate_reservas.py
 python migrate_notificaciones.py
+python migrate_capacidad.py
 ```
 
 ### 5. Ejecutar la Aplicación
@@ -224,6 +225,7 @@ control_acceso/
 ├── deploy/                     # Gunicorn, systemd y Nginx para producción
 ├── registrar_dispositivo.py    # Registro de lectores por consola
 ├── respaldar_base.py           # Respaldo diario con retención
+├── migrate_capacidad.py        # Agrega capacidad y nombre único a los espacios
 ├── migrate_passwords.py        # Script de migración de contraseñas
 ├── requirements.txt            # Dependencias
 ├── .env.example               # Plantilla de configuración
