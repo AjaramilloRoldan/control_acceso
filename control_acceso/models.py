@@ -31,6 +31,12 @@ class User(db.Model):
     def rfid(self):
         return self.tarjeta_activa.uid if self.tarjeta_activa else ''
 
+class Admin(db.Model):
+    __tablename__ = 'admin'
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(50), nullable=False)
+    password = db.Column(db.String(255), nullable=False)
+
 class Tarjeta(db.Model):
     __tablename__ = 'tarjetas'
     id = db.Column(db.Integer, primary_key=True)

@@ -131,6 +131,43 @@ def test_reservation_error_contract(client):
     check_contract(respuesta, '/reservar')
 
 
+def future_reservation():
+    with app.app_context():
+        reserva = Reserva(user_id=10, instalacion_id=1, fecha_reserva=date(2030, 1, 7), hora_inicio=time(10, 0), hora_fin=time(11, 0))
+        db.session.add(reserva)
+        db.session.commit()
+        return reserva.id
+
+
+def test_reservation_change_contract(client):
+    reserva_id = future_reservation()
+    login_as(client, 'user', 10)
+    ruta = f'/reservas/{reserva_id}'
+    cambio = {'fecha': '2030-01-08', 'hora_inicio': '10:00', 'hora_fin': '11:00'}
+
+    correcto = client.post(ruta, data=cambio)
+    ausente = client.post('/reservas/999', data=cambio)
+    invalido = client.post(ruta, data={**cambio, 'fecha': 'x'})
+
+    assert (correcto.status_code, ausente.status_code, invalido.status_code) == (200, 404, 400)
+    for respuesta in (correcto, ausente, invalido):
+        check_contract(respuesta, '/reservas/{reserva_id}')
+
+
+def test_reservation_cancellation_contract(client):
+    reserva_id = future_reservation()
+    login_as(client, 'user', 10)
+    ruta = f'/cancelar_reserva/{reserva_id}'
+
+    correcto = client.post(ruta)
+    repetido = client.post(ruta)
+    ausente = client.post('/cancelar_reserva/999')
+
+    assert (correcto.status_code, repetido.status_code, ausente.status_code) == (200, 409, 404)
+    for respuesta in (correcto, repetido, ausente):
+        check_contract(respuesta, '/cancelar_reserva/{reserva_id}')
+
+
 def test_stats_contract(client, monkeypatch):
     class Cursor:
         def execute(self, consulta, parametros=None):

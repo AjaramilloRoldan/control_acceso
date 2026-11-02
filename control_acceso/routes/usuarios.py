@@ -15,6 +15,7 @@ bp = Blueprint('usuarios', __name__)
 
 ENDPOINTS_SIN_AVISO = ('usuarios.autorizacion', 'auth.logout', 'static')
 FILTROS_ESTADO = ('activo', 'inactivo', 'todos')
+DIGITOS_MAXIMOS_PAGINA = 6
 MENSAJE_CONTRASENA = 'Error: Contraseña inválida (mínimo 12 caracteres, con mayúsculas, minúsculas, dígitos y símbolos)'
 MENSAJE_USUARIO_INACTIVO = 'Error: No se puede asociar una tarjeta a un usuario inactivo'
 
@@ -30,6 +31,9 @@ def replace_active_card(usuario, uid):
     if actual:
         revoke_card(actual, 'reemplazo')
     usuario.tarjetas.append(Tarjeta(uid=uid))
+
+def valid_page(pagina):
+    return pagina.isdecimal() and len(pagina) <= DIGITOS_MAXIMOS_PAGINA and int(pagina) >= 1
 
 def rejects_new_card(usuario, uid):
     actual = usuario.tarjeta_activa
@@ -74,10 +78,11 @@ def usuarios():
     busqueda = request.args.get('q', '').strip()
     rol = request.args.get('rol', '')
     estado = request.args.get('estado', 'activo')
+    pagina = request.args.get('pagina', '1')
     status = 200
-    if (rol and rol not in ROLES_USUARIO) or estado not in FILTROS_ESTADO:
+    if (rol and rol not in ROLES_USUARIO) or estado not in FILTROS_ESTADO or not valid_page(pagina):
         flash('Error: Filtro inválido', 'error')
-        rol, estado, status = '', 'activo', 400
+        rol, estado, pagina, status = '', 'activo', '1', 400
 
     consulta = User.query
     if busqueda:
@@ -89,7 +94,7 @@ def usuarios():
         consulta = consulta.filter(User.estado == estado)
 
     paginacion = consulta.order_by(User.name, User.id).paginate(
-        page=request.args.get('pagina', 1, type=int), per_page=FILAS_POR_PAGINA, error_out=False)
+        page=int(pagina), per_page=FILAS_POR_PAGINA, error_out=False)
     return render_template('usuarios.html', usuarios=paginacion.items, paginacion=paginacion, roles=ROLES_USUARIO,
                            filtros={'q': busqueda, 'rol': rol, 'estado': estado}), status
 
