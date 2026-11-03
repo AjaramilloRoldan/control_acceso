@@ -7,7 +7,7 @@ from .. import database
 from ..clock import hora_actual
 from ..extensions import db, limiter
 from ..metrics import ULTIMOS_ACCESOS_METRICAS, calcular_disponibilidad, percentil_95
-from ..formatos import DIAS_SEMANA, fecha_hora_local
+from ..formatos import DIAS_SEMANA, fecha_hora_local, hora_fin_local
 from ..models import AccessLog, Dispositivo, Instalacion, Reserva, User
 from ..permisos import deny_json, deny_page
 from ..reports import FILAS_POR_PAGINA, PeriodoInvalido, consulta_bitacora, reporte_consulta_bitacora, to_csv
@@ -65,7 +65,6 @@ def get_stats():
     cursor.execute("SELECT COUNT(*) as ok FROM access_log WHERE success = 1")
     porcentaje_exito = round((cursor.fetchone()['ok'] / total) * 100, 1)
 
-    # Solo registros del firmware que mide correctamente (identificados por instalacion_id)
     cursor.execute("""
         SELECT tiempo_lectura_ms FROM access_log
         WHERE instalacion_id IS NOT NULL AND tiempo_lectura_ms IS NOT NULL
@@ -156,7 +155,7 @@ def monitoreo():
         "autorizados_hoy": conteo.get(True, 0),
         "denegados_hoy": conteo.get(False, 0),
         "ultimos_accesos": filas_de_acceso(consulta_bitacora().limit(ACCESOS_EN_PANEL).all()),
-        "reservas_hoy": [{'franja': f"{reserva.hora_inicio.strftime('%H:%M')} - {reserva.hora_fin.strftime('%H:%M')}",
+        "reservas_hoy": [{'franja': f"{reserva.hora_inicio.strftime('%H:%M')} - {hora_fin_local(reserva.hora_fin)}",
                           'usuario': usuario, 'espacio': espacio} for reserva, usuario, espacio in reservas],
         "dispositivos": [{'descripcion': lector.descripcion or 'Sin descripción', 'espacio': espacio,
                           'ultima_conexion': fecha_hora_local(lector.ultima_conexion) if lector.ultima_conexion else None}

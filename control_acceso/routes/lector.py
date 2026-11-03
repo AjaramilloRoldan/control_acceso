@@ -15,18 +15,13 @@ bp = Blueprint('lector', __name__)
 
 LONGITUD_UID_BITACORA = 50
 SOLICITUDES_RECHAZADAS = {
-    'INSTALACION_NO_ASOCIADA': ("Instalación no asociada al dispositivo", 403),
     'UID_INVALIDO': ("UID inválido", 400),
 }
-
 def authenticated_device():
     token_hash = hash_device_token(request.headers.get('X-Device-Token', ''))
     return Dispositivo.query.filter_by(token_hash=token_hash, estado='activo').first()
 
-def rejected_request_reason(data, uid, dispositivo):
-    if data.get('instalacion_id') != dispositivo.instalacion_id:
-        log_security_event('DEVICE_INSTALLATION_MISMATCH', details=f'Dispositivo: {dispositivo.id}', ip=request.remote_addr)
-        return 'INSTALACION_NO_ASOCIADA'
+def rejected_request_reason(uid):
     return None if validate_rfid(uid) else 'UID_INVALIDO'
 
 @bp.route('/historial', methods=['POST'])
@@ -41,7 +36,7 @@ def validar_acceso():
     data = request.get_json(silent=True) or {}
     uid = data.get('uid')
     uid = normalize_uid(uid) if isinstance(uid, str) else ''
-    rechazo = rejected_request_reason(data, uid, dispositivo)
+    rechazo = rejected_request_reason(uid)
 
     tiempo_reconexion_wifi = data.get('tiempo_reconexion_wifi')
     if not isinstance(tiempo_reconexion_wifi, int) or tiempo_reconexion_wifi < 0:

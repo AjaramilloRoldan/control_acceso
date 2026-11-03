@@ -70,7 +70,7 @@
                     <div>
                         <h4 class="text-white font-bold group-hover:text-emerald-400 transition-colors">{{ res.instalacion.nombre }}</h4>
                         <p class="text-[10px] text-slate-500 uppercase font-bold tracking-widest mt-1">{{ res.fecha_reserva | fecha }}</p>
-                        <p class="text-sm text-emerald-400 font-semibold mt-1">{{ res.hora_inicio.strftime('%H:%M') }} — {{ res.hora_fin.strftime('%H:%M') }}</p>
+                        <p class="text-sm text-emerald-400 font-semibold mt-1">{{ res.hora_inicio.strftime('%H:%M') }} — {{ res.hora_fin | hora_fin }}</p>
                     </div>
                     {% if gestiona_reservas %}
                     <div class="flex items-center gap-2">
@@ -199,7 +199,7 @@
         let currentBusySlots = [];
         let editingId = null;
         const OPEN_TIME = 6;
-        const CLOSE_TIME = 22;
+        const CLOSE_TIME = 24;
 
         function openBookingModal(boton) {
             const { instalacion: id, nombre, reserva: reservaId = null } = boton.dataset;
@@ -235,7 +235,7 @@ editingId = reservaId;
             currentBusySlots = [];
             busy.forEach(b => {
                 let s = parseInt(b.from.split(':')[0]);
-                let e = parseInt(b.to.split(':')[0]);
+                let e = b.to === '00:00' ? CLOSE_TIME : parseInt(b.to.split(':')[0]);
                 for(let i=s; i<e; i++) currentBusySlots.push(i);
             });
 
@@ -278,7 +278,7 @@ editingId = reservaId;
 
         function selectEnd(h) {
             endHour = h;
-            document.getElementById('input_hora_fin').value = `${h.toString().padStart(2,'0')}:00`;
+            document.getElementById('input_hora_fin').value = h === 24 ? '00:00' : `${h.toString().padStart(2,'0')}:00`;
             document.querySelectorAll('#endContainer .time-pill').forEach(el => {
                 el.classList.toggle('selected', parseInt(el.dataset.hour) === h);
             });
@@ -289,7 +289,7 @@ editingId = reservaId;
             const div = document.createElement('div');
             div.dataset.hour = h;
             div.className = `time-pill p-2 rounded-lg text-center text-[11px] font-bold bg-slate-900/40 border border-white/5 ${disabled ? 'occupied' : 'hover:border-emerald-500'}`;
-            div.innerText = `${h.toString().padStart(2,'0')}:00`;
+            div.innerText = h === 24 ? '00:00' : `${h.toString().padStart(2,'0')}:00`;
             if(!disabled) div.onclick = callback;
             return div;
         }
@@ -300,7 +300,8 @@ editingId = reservaId;
             const label = document.getElementById('selectedLabel');
 
             if (startHour !== null && endHour !== null) {
-                label.innerText = `${startHour.toString().padStart(2,'0')}:00 a ${endHour.toString().padStart(2,'0')}:00`;
+                const endLabel = endHour === 24 ? '00:00' : `${endHour.toString().padStart(2,'0')}:00`;
+                label.innerText = `${startHour.toString().padStart(2,'0')}:00 a ${endLabel}`;
                 summary.classList.remove('hidden');
                 btn.disabled = false;
                 btn.className = "w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-4 rounded-xl shadow-lg shadow-emerald-500/20 cursor-pointer transition-all text-sm uppercase tracking-widest opacity-100";

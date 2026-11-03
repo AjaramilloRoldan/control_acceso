@@ -24,14 +24,6 @@ LiquidCrystal_PCF8574 lcd(LCD_ADDR);
 // --- RFID ---
 MFRC522 mfrc522(SS_PIN, RST_PIN);
 
-// --- ID de Instalación ---
-// Configurar según la ubicación física del lector RFID:
-// 1: Cancha de Squash
-// 2: Sala de Juntas VIP
-// 3: Piscina Climatizada
-// 17: Prueba
-const int INSTALACION_ID = 2;
-
 // --- Métricas ---
 unsigned long tiempoLectura = 0;
 unsigned long tiempoReconexionWiFi = 0;
@@ -113,7 +105,8 @@ void loop() {
   } else if (wifiConectadoAnterior && !wifiConectadoActual) {
     // WiFi se desconectó
     ultimaDesconexionWiFi = millis();
-    Serial.println("WiFi desconectado");
+    Serial.println("WiFi desconectado. Intentando reconectar...");
+    WiFi.reconnect();
   }
   wifiConectadoAnterior = wifiConectadoActual;
 
@@ -140,7 +133,7 @@ void loop() {
     http.addHeader("Content-Type", "application/json");
     http.addHeader("X-Device-Token", DEVICE_TOKEN);
 
-    String payload = "{\"uid\":\"" + uid + "\",\"instalacion_id\":" + String(INSTALACION_ID) + ",\"tiempo_reconexion_wifi\":" + String(tiempoReconexionWiFi) + "}";
+    String payload = "{\"uid\":\"" + uid + "\",\"tiempo_reconexion_wifi\":" + String(tiempoReconexionWiFi) + "}";
     int httpResponseCode = http.POST(payload);
     
     long logId = 0;

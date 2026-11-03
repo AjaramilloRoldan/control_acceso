@@ -91,7 +91,7 @@ def test_margin_does_not_wrap_past_midnight(client):
     assert denial_at(MIERCOLES.replace(hour=23, minute=55)) is None
 
 
-def test_reader_of_other_installation_is_rejected(client):
+def test_reader_uses_its_associated_installation(client):
     with app.app_context():
         db.session.add(Instalacion(id=2, nombre='Sala'))
         db.session.add(Dispositivo(id=2, instalacion_id=2, token_hash=hash_device_token('otro-token')))
@@ -99,8 +99,10 @@ def test_reader_of_other_installation_is_rejected(client):
     headers = {'X-Device-Token': 'otro-token'}
     response = client.post('/historial', json={'uid': 'aabbccdd', 'instalacion_id': 1}, headers=headers)
     assert response.status_code == 403
+    assert response.get_json()['motivo'] == 'SIN_RESERVA_VIGENTE'
     with app.app_context():
-        assert AccessLog.query.filter_by(motivo='INSTALACION_NO_ASOCIADA', instalacion_id=2).count() == 1
+        registro = AccessLog.query.order_by(AccessLog.id.desc()).first()
+        assert registro.instalacion_id == 2 and registro.motivo == 'SIN_RESERVA_VIGENTE'
 
 
 def test_disabled_reader_is_not_authenticated(client):

@@ -55,9 +55,9 @@
         </h2>
         <p class="text-sm text-amber-200 mb-4">
           No se volverá a mostrar. Va en <code>DEVICE_TOKEN</code> de
-          <code>secrets.h</code>, y el firmware debe usar
-          <code>INSTALACION_ID = {{ token_instalacion }}</code>. Si recargas
-          esta página se registrará otro lector.
+          <code>secrets.h</code>. La instalación del lector queda asociada a
+          este token; no es necesario configurar un ID en el firmware. Si
+          recargas esta página se registrará otro lector.
         </p>
         <code
           class="block p-4 rounded-xl bg-black/30 text-emerald-300 text-sm break-all select-all"

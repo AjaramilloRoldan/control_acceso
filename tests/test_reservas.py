@@ -9,8 +9,8 @@ from app import app
 from control_acceso.access import evaluate_access
 from control_acceso.extensions import db
 from control_acceso.models import Instalacion, Reserva, Tarjeta, User
-from control_acceso.reservations import (ReservaError, cancelar_reserva, crear_reserva, modificar_reserva, parse_serie,
-                                         programar_series, read_series_csv)
+from control_acceso.reservations import (HORA_CIERRE, ReservaError, cancelar_reserva, crear_reserva,
+                                         modificar_reserva, parse_serie, programar_series, read_series_csv)
 from control_acceso.security import hash_password
 
 LUNES = date(2030, 1, 7)
@@ -73,7 +73,7 @@ def test_overlap_uses_half_open_intervals(client, inicio, fin, status):
     (date(2029, 12, 31), time(10, 0), time(11, 0)),
     (date(2030, 1, 6), time(10, 0), time(11, 0)),
     (LUNES, time(5, 0), time(7, 0)),
-    (LUNES, time(21, 0), time(22, 30)),
+    (LUNES, time(21, 0), time(1, 0)),
     (LUNES, time(10, 0), time(10, 15)),
     (LUNES, time(10, 0), time(14, 30)),
     (LUNES, time(11, 0), time(10, 0)),
@@ -87,6 +87,7 @@ def test_duration_limits_are_inclusive(client):
     with app.app_context():
         assert book(inicio=time(6, 0), fin=time(6, 30)).id
         assert book(inicio=time(18, 0), fin=time(22, 0)).id
+        assert book(inicio=time(22, 0), fin=HORA_CIERRE).id
 
 
 def test_space_policy_applies_to_requests(client):
@@ -111,6 +112,18 @@ def test_request_returns_error_message_as_json(client):
     response = client.post('/reservar', data=tomorrow_form())
     assert response.status_code == 409 and 'no disponible' in response.get_json()['error']
     assert client.post('/reservar', data=tomorrow_form(fecha='no-es-fecha')).status_code == 400
+
+
+def test_midnight_is_accepted_as_reservation_end(client):
+    login_as(client, 'user', 11)
+    formulario = tomorrow_form(hora_inicio='20:00', hora_fin='00:00')
+    response = client.post('/reservar', data=formulario)
+    assert response.status_code == 201
+    with app.app_context():
+        reserva = db.session.get(Reserva, response.get_json()['id'])
+        assert reserva.hora_fin == HORA_CIERRE
+    ocupados = client.get(f"/api/disponibilidad/1/{formulario['fecha']}").get_json()
+    assert ocupados[0]['to'] == '00:00'
 
 
 def test_modification_deadline_is_sixty_minutes(client):

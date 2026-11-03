@@ -4,12 +4,13 @@ from flask import (Blueprint, flash, jsonify, redirect, render_template, request
 
 from ..clock import hora_actual
 from ..extensions import db
+from ..formatos import hora_fin_local
 from ..models import Instalacion, Notificacion, Reserva, User
 from ..permisos import deny_json, deny_page, log_denied_access
 from ..security import log_security_event
 from ..reservations import (ROL_POR_TIPO, ROLES_CON_RESERVA, ReservaError, cancelar_reserva, check_manager,
-                            crear_reserva, modificar_reserva, parse_date, parse_serie, parse_time,
-                            programar_series, read_series_csv)
+                            crear_reserva, modificar_reserva, parse_date, parse_end_time, parse_serie,
+                            parse_time, programar_series, read_series_csv)
 
 bp = Blueprint('reservas', __name__)
 
@@ -78,7 +79,7 @@ def reservar():
         request.form.get('instalacion_id', type=int),
         parse_date(request.form.get('fecha')),
         parse_time(request.form.get('hora_inicio')),
-        parse_time(request.form.get('hora_fin')),
+        parse_end_time(request.form.get('hora_fin')),
         request.form.get('motivo'),
         hora_actual()
     )
@@ -94,7 +95,7 @@ def modificar(reserva_id):
         reserva,
         parse_date(request.form.get('fecha')),
         parse_time(request.form.get('hora_inicio')),
-        parse_time(request.form.get('hora_fin')),
+        parse_end_time(request.form.get('hora_fin')),
         hora_actual()
     )
     log_security_event('RESERVATION_UPDATED', details=f'Reserva: {reserva.id}', ip=request.remote_addr)
@@ -211,6 +212,6 @@ def consultar_disponibilidad(inst_id, fecha):
         return jsonify({"error": "Espacio no encontrado"}), 404
     excluir = request.args.get('excluir', type=int)
     reservas = Reserva.query.filter_by(instalacion_id=inst_id, fecha_reserva=fecha_consulta, estado='activa').all()
-    ocupados = [{"from": r.hora_inicio.strftime('%H:%M'), "to": r.hora_fin.strftime('%H:%M')}
+    ocupados = [{"from": r.hora_inicio.strftime('%H:%M'), "to": hora_fin_local(r.hora_fin)}
                 for r in reservas if r.id != excluir]
     return jsonify(ocupados)

@@ -8,7 +8,7 @@ from email.message import EmailMessage
 from sqlalchemy.exc import SQLAlchemyError
 
 from .extensions import db
-from .formatos import fecha_local
+from .formatos import fecha_local, hora_fin_local
 from .models import Notificacion
 
 logger = logging.getLogger(__name__)
@@ -60,7 +60,7 @@ def notificar(usuario, mensaje):
 
 
 def describir_reserva(reserva):
-    franja = f"{reserva.hora_inicio.strftime('%H:%M')} a {reserva.hora_fin.strftime('%H:%M')}"
+    franja = f"{reserva.hora_inicio.strftime('%H:%M')} a {hora_fin_local(reserva.hora_fin)}"
     return f'{reserva.instalacion.nombre}, {fecha_local(reserva.fecha_reserva)}, de {franja}'
 
 
