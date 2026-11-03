@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 # Cargar variables de entorno
 load_dotenv()
 
-# Instalación configurada hoy en el firmware (INSTALACION_ID)
+# Instalación a la que se asocia el lector legado durante la migración.
 INSTALACION_LECTOR_ACTUAL = 2
 
 COLUMNAS = {

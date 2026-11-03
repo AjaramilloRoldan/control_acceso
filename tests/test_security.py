@@ -166,6 +166,26 @@ def test_reader_with_token_is_denied_without_reservation(client):
     assert response.get_json()['access'] is False
 
 
+def test_reader_uses_token_installation_even_when_payload_has_different_id(client):
+    with app.app_context():
+        db.session.add(Instalacion(id=2, nombre='Sala'))
+        db.session.add(Dispositivo(id=2, instalacion_id=2, token_hash=hash_device_token('otro-token')))
+        db.session.add(Reserva(
+            user_id=11, instalacion_id=2, fecha_reserva=datetime.now(ZoneInfo('America/Bogota')).date(),
+            hora_inicio=time(0, 0), hora_fin=time(23, 59, 59),
+        ))
+        db.session.commit()
+
+    response = client.post(
+        '/historial', json={'uid': 'ddeeff00', 'instalacion_id': 1}, headers={'X-Device-Token': 'otro-token'}
+    )
+    assert response.status_code == 200
+    assert response.get_json()['access'] is True
+    with app.app_context():
+        registro = db.session.get(AccessLog, response.get_json()['log_id'])
+        assert registro.instalacion_id == 2 and registro.success
+
+
 @pytest.mark.parametrize('uid', [None, 123, 'x', 'aabbcc'])
 def test_reader_rejects_invalid_uid(client, uid):
     response = client.post('/historial', json={'uid': uid, 'instalacion_id': 1}, headers=DEVICE_HEADERS)

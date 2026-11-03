@@ -5,12 +5,12 @@ from datetime import date, datetime, time, timedelta
 
 from . import config
 from .extensions import db
-from .formatos import fecha_local
+from .formatos import fecha_local, hora_fin_local
 from .models import Instalacion, Reserva, User
 from .notifications import notificar, notificar_reserva
 
 HORA_APERTURA = time(6, 0)
-HORA_CIERRE = time(22, 0)
+HORA_CIERRE = time(23, 59, 59)
 DURACION_MINIMA_MINUTOS = 30
 DURACION_MAXIMA_MINUTOS = 240
 MOTIVO_MAXIMO = 200
@@ -53,10 +53,16 @@ def parse_time(value):
         raise ReservaError('Hora inválida', 400)
 
 
+def parse_end_time(value):
+    if value == '00:00':
+        return HORA_CIERRE
+    return parse_time(value)
+
+
 def validate_schedule(inicio, fin):
-    """Horario institucional y duración permitida (supuesto S-03)"""
+    """Valida el horario institucional y la duración permitida."""
     if inicio < HORA_APERTURA or fin > HORA_CIERRE:
-        raise ReservaError('El horario permitido es de 06:00 a 22:00', 400)
+        raise ReservaError('El horario permitido es de 06:00 a 00:00', 400)
     minutos = (datetime.combine(date.min, fin) - datetime.combine(date.min, inicio)).total_seconds() / 60
     if not DURACION_MINIMA_MINUTOS <= minutos <= DURACION_MAXIMA_MINUTOS:
         raise ReservaError('La duración debe estar entre 30 minutos y 4 horas', 400)
@@ -92,7 +98,7 @@ def find_conflict(instalacion_id, fecha, inicio, fin, excluir_id=None):
 def check_available(instalacion_id, fecha, inicio, fin, excluir_id=None):
     conflicto = find_conflict(instalacion_id, fecha, inicio, fin, excluir_id)
     if conflicto:
-        franja = f"{conflicto.hora_inicio.strftime('%H:%M')} a {conflicto.hora_fin.strftime('%H:%M')}"
+        franja = f"{conflicto.hora_inicio.strftime('%H:%M')} a {hora_fin_local(conflicto.hora_fin)}"
         raise ReservaError(f'Horario no disponible: ya está reservado de {franja}', 409)
 
 
@@ -173,7 +179,7 @@ def parse_serie(campos, tipo):
             instalacion_id=int(campos['id_espacios']),
             dia_semana=int(campos['dia_semana']),
             hora_inicio=parse_time(campos['hora_inicio']),
-            hora_fin=parse_time(campos['hora_fin']),
+            hora_fin=parse_end_time(campos['hora_fin']),
             fecha_inicial=parse_date(campos['fecha_inicial']),
             fecha_final=parse_date(campos['fecha_final']),
         )
@@ -219,6 +225,7 @@ def check_serie(serie, instalaciones, ahora):
     instalacion = instalaciones.get(serie.instalacion_id)
     if instalacion is None or instalacion.estado not in ESTADOS_ESPACIO_POR_TIPO[serie.tipo]:
         raise ReservaError(f'La instalación {serie.instalacion_id} no está disponible', 409)
+    validate_schedule(serie.hora_inicio, serie.hora_fin)
     if serie.fecha_inicial < ahora.date():
         raise ReservaError('La fecha inicial ya pasó', 400)
 
@@ -251,5 +258,5 @@ def programar_series(series, ahora):
         notificar(db.session.get(User, serie.usuario_id),
                   f'Se programó tu horario en {instalaciones[serie.instalacion_id].nombre}: '
                   f"del {fecha_local(serie.fecha_inicial)} al {fecha_local(serie.fecha_final)}, "
-                  f"de {serie.hora_inicio.strftime('%H:%M')} a {serie.hora_fin.strftime('%H:%M')}.")
+                  f"de {serie.hora_inicio.strftime('%H:%M')} a {hora_fin_local(serie.hora_fin)}.")
     return creadas

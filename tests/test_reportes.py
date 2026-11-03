@@ -156,8 +156,8 @@ def test_occupancy_report_by_day(client):
         db.session.commit()
         filas = reporte_ocupacion(date(2030, 1, 6), date(2030, 1, 7), 1)['tablas'][0]['filas']
         assert filas[0] == ['06/01/2030', '0,0', 0, 0, '0,0']
-        assert filas[1] == ['07/01/2030', '4,0', 2, 16, '25,0']
-        assert filas[2] == ['Total', '4,0', 2, 16, '25,0']
+        assert filas[1] == ['07/01/2030', '4,0', 2, 18, '22,2']
+        assert filas[2] == ['Total', '4,0', 2, 18, '22,2']
 
 
 def test_occupancy_without_data_is_empty(client):

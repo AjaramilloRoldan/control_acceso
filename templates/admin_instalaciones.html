@@ -118,7 +118,7 @@
                         {% endif %}
                         <p class="text-slate-400 text-sm line-clamp-2 mb-6">{{ inst.descripcion }}</p>
                         <div class="flex gap-3">
-                            <button onclick="openModal('edit', this)" data-id="{{ inst.id }}" data-nombre="{{ inst.nombre }}" data-descripcion="{{ inst.descripcion or '' }}" data-imagen="{{ inst.imagen or '' }}" data-estado="{{ inst.estado }}" data-roles="{{ inst.roles_autorizados|join(',') }}" data-ubicacion="{{ inst.ubicacion or '' }}" data-capacidad="{{ inst.capacidad or '' }}" data-dotacion="{{ inst.dotacion or '' }}" 
+                            <button onclick="openModal('edit', this)" data-id="{{ inst.id }}" data-nombre="{{ inst.nombre }}" data-descripcion="{{ inst.descripcion or '' }}" data-imagen="{{ inst.imagen or '' }}" data-estado="{{ inst.estado }}" data-roles="{{ inst.roles_autorizados|join(',') }}" data-ubicacion="{{ inst.ubicacion or '' }}" data-capacidad="{{ inst.capacidad or '' }}" data-dotacion="{{ inst.dotacion or '' }}"
                                     class="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition-all border border-white/5 text-sm">
                                 Editar
                             </button>

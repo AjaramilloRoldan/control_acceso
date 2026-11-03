@@ -66,7 +66,6 @@ Cada lectura se evalúa en el servidor y queda registrada, autorizada o no, ante
 | `ROL_NO_AUTORIZADO`       | La política del espacio excluye el rol del titular       |
 | `SIN_RESERVA_VIGENTE`     | No hay reserva vigente, considerando el margen de acceso |
 | `UID_INVALIDO`            | El UID recibido tiene un formato inválido                |
-| `INSTALACION_NO_ASOCIADA` | El lector solicita validar otro espacio                  |
 | `ERROR_REGISTRO`          | No fue posible persistir el intento                      |
 
 ## Arquitectura
@@ -236,7 +235,7 @@ El código está en `EjecutableHardware/EjecutableHardware.ino`.
 1. Instalar en Arduino IDE el soporte de ESP32 y las bibliotecas `MFRC522` y `LiquidCrystal_PCF8574`.
 2. Registrar el lector en `/dispositivos` y copiar su token, que se muestra una sola vez.
 3. Copiar `EjecutableHardware/secrets.example.h` como `EjecutableHardware/secrets.h` y completar la red, las URL y el token. Ese archivo está excluido de Git.
-4. Ajustar `INSTALACION_ID` al identificador que muestra `/dispositivos` y cargar el firmware.
+4. Cargar el firmware. El token identifica el lector y la instalación que se le asignó en `/dispositivos`.
 
 Un lector revocado recibe `401` desde su siguiente lectura. El registro también puede hacerse con `python registrar_dispositivo.py <id_instalacion> "<descripción>"`.
 

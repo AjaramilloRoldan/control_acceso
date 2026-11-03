@@ -221,10 +221,11 @@ def test_non_text_uid_is_logged_without_value(client):
         assert AccessLog.query.filter_by(motivo='UID_INVALIDO').one().rfid_uid is None
 
 
-def test_foreign_installation_request_is_logged(client):
-    assert validate_request(client, instalacion_id=99).status_code == 403
+def test_foreign_installation_payload_does_not_override_device_association(client):
+    assert validate_request(client, instalacion_id=99).status_code == 200
     with app.app_context():
-        assert AccessLog.query.filter_by(motivo='INSTALACION_NO_ASOCIADA').count() == 1
+        registro = AccessLog.query.order_by(AccessLog.id.desc()).first()
+        assert registro.success and registro.instalacion_id == 1
 
 
 def test_space_data_stays_out_of_inline_handlers(client):

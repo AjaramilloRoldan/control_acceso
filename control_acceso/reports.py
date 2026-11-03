@@ -16,8 +16,7 @@ FILAS_POR_PAGINA = 20
 COLUMNAS_BITACORA = ['ID', 'Fecha y hora', 'Usuario', 'UID', 'Espacio', 'Resultado', 'Motivo']
 PREFIJOS_DE_FORMULA = ('=', '+', '-', '@')
 
-HORAS_HABILES_POR_DIA = HORA_CIERRE.hour - HORA_APERTURA.hour
-
+HORAS_HABILES_POR_DIA = HORA_CIERRE.hour - HORA_APERTURA.hour + 1
 
 class PeriodoInvalido(Exception):
     pass
