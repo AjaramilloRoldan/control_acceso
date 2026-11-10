@@ -60,32 +60,31 @@
             
             <nav class="flex flex-col gap-2">
                 <p class="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-2 ml-4">Módulo Usuarios</p>
-                <a href="/dashboard" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl font-medium transition-all group">
-                    <span class="group-hover:scale-110 transition-transform">🏠</span> Dashboard
+                <a href="/dashboard" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl font-medium transition-all">
+                    Dashboard
                 </a>
                 <a href="/usuarios" class="flex items-center gap-3 px-4 py-3 bg-emerald-500/10 text-emerald-400 rounded-xl font-semibold border border-emerald-500/20 transition-all">
-                    <span class="scale-110">👥</span> Usuarios
+                    Usuarios
                 </a>
                 <a href="/admin_instalaciones" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl font-medium transition-all group">
-                <span class="text-lg group-hover:scale-110 transition-transform">🏢</span>
                 <span class="tracking-wide">Instalaciones</span>
             </a>
-                <a href="/reservas/recurrentes" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl font-medium transition-all group">
-                    <span class="group-hover:scale-110 transition-transform">📅</span> Programación
+                <a href="/reservas/recurrentes" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl font-medium transition-all">
+                    Programación
                 </a>
-                <a href="/reportes" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl font-medium transition-all group">
-                    <span class="group-hover:scale-110 transition-transform">📊</span> Reportes
+                <a href="/reportes" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl font-medium transition-all">
+                    Reportes
                 </a>
-                <a href="/dispositivos" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl font-medium transition-all group">
-                    <span class="group-hover:scale-110 transition-transform">📡</span> Lectores
+                <a href="/dispositivos" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl font-medium transition-all">
+                    Lectores
                 </a>
-                <a href="/historial" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl font-medium transition-all group">
-                    <span class="group-hover:scale-110 transition-transform">📝</span> Historial
+                <a href="/historial" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl font-medium transition-all">
+                    Historial
                 </a>
             </nav>
         <div class="mt-4 pt-4 border-t border-white/5">
-                    <a href="/logout" class="flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-red-500/10 rounded-xl font-medium transition-all group">
-                        <span class="group-hover:rotate-12 transition-transform">🔒</span> Cerrar Sesión
+                    <a href="/logout" class="flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-red-500/10 rounded-xl font-medium transition-all">
+                        Cerrar Sesión
                     </a>
                 </div>
             </nav>
@@ -107,8 +106,8 @@
                     <p class="text-slate-400 mt-1">Administra los permisos y credenciales RFID de la comunidad.</p>
                 </div>
                 <div class="flex gap-3">
-                    <a href="#registro-seccion" class="px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-900 rounded-2xl font-bold transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2">
-                        <span>➕</span> Nuevo Registro
+                    <a href="#registro-seccion" class="px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-900 rounded-2xl font-bold transition-all shadow-lg shadow-emerald-500/20">
+                        Nuevo Registro
                     </a>
                 </div>
             </header>
@@ -231,8 +230,8 @@
 
             <section id="registro-seccion" class="glass p-8 md:p-10 rounded-[2.5rem] shadow-2xl relative overflow-hidden scroll-mt-24">
                 <div class="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 blur-[100px] rounded-full -mr-20 -mt-20"></div>
-                <h3 class="text-2xl font-bold text-white mb-8 flex items-center gap-3">
-                    <span class="text-emerald-500 text-3xl">👤</span> Registro de Nueva Credencial
+                <h3 class="text-2xl font-bold text-white mb-8">
+                    Registro de Nueva Credencial
                 </h3>
 
                 <form action="/agregar_usuario" method="post" class="relative z-10 space-y-8">
@@ -305,7 +304,7 @@
 
     <div id="confirmDeleteModal" class="fixed inset-0 z-[110] flex items-center justify-center hidden bg-black/80 backdrop-blur-md p-4">
     <div class="glass max-w-sm w-full p-8 rounded-[2.5rem] text-center animate-scale shadow-2xl border-red-500/20">
-        <div class="w-20 h-20 mx-auto mb-4 rounded-full bg-red-500/20 text-red-500 flex items-center justify-center text-4xl border-4 border-red-500/30">⚠️</div>
+        <div class="w-20 h-20 mx-auto mb-4 rounded-full bg-red-500/20 text-red-500 flex items-center justify-center text-4xl font-bold border-4 border-red-500/30" aria-hidden="true">!</div>
         <h2 class="text-2xl font-bold text-white mb-2">¿Estás seguro?</h2>
         <p class="text-slate-400 mb-8 text-sm">Esta acción desactivará al usuario y cancelará sus reservas futuras. Su historial se conserva.</p>
               <div class="flex gap-3">
@@ -333,11 +332,11 @@
             const icon = document.getElementById('iconContainer');
             
             if(type === 'success') {
-                icon.innerHTML = '✔️';
+                icon.innerHTML = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="w-9 h-9"><path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6"/></svg>';
                 icon.className = "w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center text-4xl bg-emerald-500/20 text-emerald-500 border-4 border-emerald-500/30 shadow-lg";
                 document.getElementById('modalTitle').innerText = "¡Hecho!";
             } else {
-                icon.innerHTML = '❌';
+                icon.innerHTML = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="w-9 h-9"><path stroke-linecap="round" stroke-linejoin="round" d="m6 6 12 12M18 6 6 18"/></svg>';
                 icon.className = "w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center text-4xl bg-red-500/20 text-red-500 border-4 border-red-500/30 shadow-lg";
                 document.getElementById('modalTitle').innerText = "Error";
             }

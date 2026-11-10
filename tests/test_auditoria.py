@@ -239,6 +239,18 @@ def test_space_data_stays_out_of_inline_handlers(client):
     assert 'onclick="openBookingModal(this)"' in usuario and 'data-nombre="Sala O&#39;Neil"' in usuario
 
 
+def test_admin_edit_preview_normalizes_saved_image_path(client):
+    change(Instalacion, 1, imagen='static/uploads/instalaciones/sala.png')
+    login_as(client, 'admin', 1)
+
+    html = client.get('/admin_instalaciones').get_data(as_text=True)
+
+    assert 'data-imagen="/static/uploads/instalaciones/sala.png"' in html
+    assert 'src="/static/uploads/instalaciones/sala.png"' in html
+    assert 'overflow-y-auto p-4 modal-blur' in html
+    assert 'max-h-[calc(100vh-2rem)]' in html
+
+
 def test_admin_operations_name_their_actor(client, eventos):
     login_as(client, 'admin', 1)
     client.post('/editar_usuario/10', data={**new_user_form(rfid='aabbccdd', username='ana', name='Ana Maria'), 'password': ''})

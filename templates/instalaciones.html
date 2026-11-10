@@ -54,7 +54,7 @@
         <a href="/mis_reservas" class="px-6 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-sm font-bold text-emerald-400">Mis reservas</a>
         <a href="/historial" class="px-6 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-sm font-bold text-emerald-400">Mis ingresos</a>
         <a href="/autorizacion" class="px-6 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-sm font-bold text-emerald-400">Privacidad</a>
-        <a href="/logout" class="px-6 py-2 bg-red-500/10 border border-red-500/20 rounded-full text-sm font-bold text-red-400 hover:bg-red-500 hover:text-white transition-all">🚪 Cerrar Sesión</a>
+        <a href="/logout" class="px-6 py-2 bg-red-500/10 border border-red-500/20 rounded-full text-sm font-bold text-red-400 hover:bg-red-500 hover:text-white transition-all">Cerrar Sesión</a>
     </header>
 
     <main class="flex-grow max-w-7xl w-full mx-auto p-6 md:p-10">
@@ -112,7 +112,15 @@
             {% for inst in instalaciones %}
             <article class="glass-card rounded-3xl overflow-hidden group hover:-translate-y-2 transition-all duration-300">
                 <div class="h-56 relative overflow-hidden">
-                    <img alt="{{ inst.nombre }}" src="{{ inst.imagen }}" class="w-full h-full object-cover">
+                    {% if inst.imagen %}
+                        {% if inst.imagen.startswith('http') or inst.imagen.startswith('/static') %}
+                            <img alt="{{ inst.nombre }}" src="{{ inst.imagen }}" class="w-full h-full object-cover">
+                        {% else %}
+                            <img alt="{{ inst.nombre }}" src="{{ url_for('static', filename='uploads/instalaciones/' + inst.imagen) }}" class="w-full h-full object-cover">
+                        {% endif %}
+                    {% else %}
+                        <div class="w-full h-full bg-slate-800 flex items-center justify-center text-slate-600 italic">Sin Imagen</div>
+                    {% endif %}
                     <div class="absolute inset-0 bg-gradient-to-t from-slate-950"></div>
                 </div>
                 <div class="p-8">

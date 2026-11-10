@@ -29,7 +29,7 @@ def create_app():
     app.add_template_filter(fecha_hora_local, 'fecha_hora')
     app.add_template_filter(hora_fin_local, 'hora_fin')
     app.config['UPLOAD_FOLDER'] = config.UPLOAD_FOLDER
-    app.config['SQLALCHEMY_DATABASE_URI'] = config.database_uri()
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+mysqlconnector://root@localhost/control_acceso_def'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
     if config.behind_https_proxy():

@@ -41,31 +41,30 @@
             <nav class="flex flex-col gap-2">
                 <p class="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-2 ml-4">Menú Principal</p>
                 <a href="/dashboard" class="flex items-center gap-3 px-4 py-3 bg-emerald-500/10 text-emerald-400 rounded-xl font-semibold border border-emerald-500/20 transition-all">
-                    <span>🏠</span> Dashboard
+                    Dashboard
                 </a>
-                <a href="/usuarios" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl font-medium transition-all group">
-                    <span class="group-hover:scale-110 transition-transform">👥</span> Usuarios
+                <a href="/usuarios" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl font-medium transition-all">
+                    Usuarios
                 </a>
-                <a href="/admin_instalaciones" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl font-medium transition-all group">
-                    <span class="text-lg group-hover:scale-110 transition-transform">🏢</span>
+                <a href="/admin_instalaciones" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl font-medium transition-all">
                     <span class="tracking-wide">Instalaciones</span>
                 </a>
-                <a href="/reservas/recurrentes" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl font-medium transition-all group">
-                    <span class="group-hover:scale-110 transition-transform">📅</span> Programación
+                <a href="/reservas/recurrentes" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl font-medium transition-all">
+                    Programación
                 </a>
-                <a href="/reportes" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl font-medium transition-all group">
-                    <span class="group-hover:scale-110 transition-transform">📊</span> Reportes
+                <a href="/reportes" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl font-medium transition-all">
+                    Reportes
                 </a>
-                <a href="/dispositivos" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl font-medium transition-all group">
-                    <span class="group-hover:scale-110 transition-transform">📡</span> Lectores
+                <a href="/dispositivos" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl font-medium transition-all">
+                    Lectores
                 </a>
-                <a href="/historial" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl font-medium transition-all group">
-                    <span class="group-hover:scale-110 transition-transform">📝</span> Historial
+                <a href="/historial" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl font-medium transition-all">
+                    Historial
                 </a>
                 
                 <div class="mt-4 pt-4 border-t border-white/5">
-                    <a href="/logout" class="flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-red-500/10 rounded-xl font-medium transition-all group">
-                        <span class="group-hover:rotate-12 transition-transform">🔒</span> Cerrar Sesión
+                    <a href="/logout" class="flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-red-500/10 rounded-xl font-medium transition-all">
+                        Cerrar Sesión
                     </a>
                 </div>
             </nav>
@@ -223,9 +222,17 @@
         setInterval(updateTime, 1000);
         updateTime();
 
-        // Carga de Datos desde la API
+        let trafficChart;
+        let successChart;
+        let reservationsChart;
+        let lastTrafficData;
+        let lastSuccessRate;
+        let lastReservationsData;
+
+        // Carga y actualización de las gráficas
         async function loadCharts() {
             const response = await fetch('/api/stats');
+            if (!response.ok) throw new Error(`Respuesta ${response.status} en /api/stats`);
             const data = await response.json();
 
             // Actualizar métricas de tarjetas
@@ -234,12 +241,24 @@
             document.getElementById('disponibilidad').textContent = data.disponibilidad ?? '--';
             document.getElementById('reconexion-wifi').textContent = data.tiempo_reconexion_wifi === null ? '--' : (data.tiempo_reconexion_wifi / 1000).toFixed(1);
 
-            // 1. Gráfica de Tráfico (Area)
-            new ApexCharts(document.querySelector("#main-area-chart"), {
+            const trafficData = {
+                labels: data.labels,
                 series: [
-                    { name: 'Autorizados', data: data.autorizados },
-                    { name: 'Denegados', data: data.denegados }
-                ],
+                        { name: 'Autorizados', data: data.autorizados },
+                        { name: 'Denegados', data: data.denegados }
+                ]
+            };
+            if (trafficChart) {
+                if (JSON.stringify(trafficData) !== JSON.stringify(lastTrafficData)) {
+                    await trafficChart.updateOptions({
+                        series: trafficData.series,
+                        xaxis: { categories: trafficData.labels, labels: { style: { colors: '#94a3b8' } } }
+                    }, false, false);
+                    lastTrafficData = trafficData;
+                }
+            } else {
+                trafficChart = new ApexCharts(document.querySelector("#main-area-chart"), {
+                series: trafficData.series,
                 chart: { height: 350, type: 'area', toolbar: { show: false }, background: 'transparent' },
                 colors: ['#10b981', '#ef4444'],
                 stroke: { curve: 'smooth', width: 3 },
@@ -248,10 +267,18 @@
                 yaxis: { labels: { style: { colors: '#94a3b8' } } },
                 theme: { mode: 'dark' },
                 grid: { borderColor: 'rgba(148, 163, 184, 0.1)' }
-            }).render();
+                });
+                await trafficChart.render();
+                lastTrafficData = trafficData;
+            }
 
-            // 2. Gráfica Radial (Tasa de Éxito - AJUSTADA)
-            new ApexCharts(document.querySelector("#radial-chart"), {
+            if (successChart) {
+                if (data.porcentaje_exito !== lastSuccessRate) {
+                    await successChart.updateSeries([data.porcentaje_exito], false);
+                    lastSuccessRate = data.porcentaje_exito;
+                }
+            } else {
+                successChart = new ApexCharts(document.querySelector("#radial-chart"), {
                 series: [data.porcentaje_exito],
                 chart: { 
                     height: 350, 
@@ -323,22 +350,39 @@
                         }
                     }
                 }
-            }).render();
+                });
+                await successChart.render();
+                lastSuccessRate = data.porcentaje_exito;
+            }
 
-            // 3. Gráfica de Barras (Instalaciones)
-            new ApexCharts(document.querySelector("#bar-chart"), {
-                series: [{ name: 'Reservas', data: data.inst_counts }],
+            const reservationsData = {
+                names: data.inst_names,
+                series: [{ name: 'Reservas', data: data.inst_counts }]
+            };
+            if (reservationsChart) {
+                if (JSON.stringify(reservationsData) !== JSON.stringify(lastReservationsData)) {
+                    await reservationsChart.updateOptions({
+                        series: reservationsData.series,
+                        xaxis: { categories: reservationsData.names, labels: { style: { colors: '#94a3b8' } } }
+                    }, false, false);
+                    lastReservationsData = reservationsData;
+                }
+            } else {
+                reservationsChart = new ApexCharts(document.querySelector("#bar-chart"), {
+                series: reservationsData.series,
                 chart: { type: 'bar', height: 300, toolbar: { show: false } },
                 colors: ['#6366f1'],
                 plotOptions: { bar: { borderRadius: 8, columnWidth: '40%' } },
-                xaxis: { categories: data.inst_names, labels: { style: { colors: '#94a3b8' } } },
+                xaxis: { categories: reservationsData.names, labels: { style: { colors: '#94a3b8' } } },
                 yaxis: { labels: { style: { colors: '#94a3b8' } } },
                 grid: { borderColor: 'rgba(148, 163, 184, 0.1)' },
                 theme: { mode: 'dark' }
-            }).render();
+                });
+                await reservationsChart.render();
+                lastReservationsData = reservationsData;
+            }
         }
 
-        loadCharts();
         loadDenegados();
 
         async function loadDenegados() {
@@ -383,6 +427,7 @@
 
         // Monitoreo: actualización cada 5 segundos
         let ultimaActualizacion = new Date();
+        let actualizacionEnCurso = false;
 
         function llenarTabla(id, filas, columnas, vacio) {
             const cuerpo = document.getElementById(id);
@@ -430,6 +475,8 @@
         }
 
         async function actualizarMonitoreo() {
+            if (actualizacionEnCurso) return;
+            actualizacionEnCurso = true;
             const aviso = document.getElementById('monitoreo-aviso');
             try {
                 const response = await fetch('/api/monitoreo');
@@ -446,10 +493,20 @@
 
                 ultimaActualizacion = new Date();
                 aviso.classList.add('hidden');
+
+                try {
+                    await loadCharts();
+                } catch (error) {
+                    console.error('Error al actualizar las gráficas', error);
+                    aviso.textContent = 'El monitoreo está actualizado, pero no fue posible actualizar las gráficas.';
+                    aviso.classList.remove('hidden');
+                }
             } catch (error) {
                 console.error('Error al actualizar el monitoreo', error);
                 aviso.textContent = `Datos desactualizados desde ${ultimaActualizacion.toLocaleTimeString('es-ES')}`;
                 aviso.classList.remove('hidden');
+            } finally {
+                actualizacionEnCurso = false;
             }
         }
 

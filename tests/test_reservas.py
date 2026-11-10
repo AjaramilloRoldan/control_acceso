@@ -53,6 +53,17 @@ def test_free_slot_is_confirmed(client):
         assert book().estado == 'activa'
 
 
+def test_student_view_renders_uploaded_installation_image(client):
+    with app.app_context():
+        db.session.get(Instalacion, 1).imagen = 'sala.jpg'
+        db.session.commit()
+
+    login_as(client, 'user', 11)
+    html = client.get('/instalaciones').get_data(as_text=True)
+
+    assert 'src="/static/uploads/instalaciones/sala.jpg"' in html
+
+
 @pytest.mark.parametrize('inicio, fin, status', [
     (time(15, 0), time(17, 0), 409),
     (time(13, 0), time(14, 30), 409),

@@ -5,12 +5,16 @@ from flask import Blueprint, Response, render_template, request, session
 from ..clock import hora_actual
 from ..permisos import deny_page
 from ..models import  Instalacion
+# from ..reports import (FILAS_EN_PANTALLA, PeriodoInvalido, reporte_bitacora, reporte_denegados, reporte_ocupacion,
+                       # reporte_uso, to_csv, validate_period)
 from ..reports import (FILAS_EN_PANTALLA, PeriodoInvalido, reporte_bitacora, reporte_denegados, reporte_ocupacion,
-                       reporte_uso, to_csv, validate_period)
+                       to_csv, validate_period)
 
 bp = Blueprint('reportes', __name__)
 
-TIPOS_REPORTE = {'ocupacion': 'Ocupación', 'uso': 'Uso', 'denegados': 'Denegados', 'bitacora': 'Bitácora'}
+# TIPOS_REPORTE = {'ocupacion': 'Ocupación', 'uso': 'Uso', 'denegados': 'Denegados', 'bitacora': 'Bitácora'}
+TIPOS_REPORTE = {'ocupacion': 'Ocupación', 'denegados': 'Denegados', 'bitacora': 'Bitácora'}
+
 DIAS_POR_DEFECTO = 30
 
 def parse_filter_date(nombre, por_defecto):
@@ -25,8 +29,8 @@ def parse_filter_date(nombre, por_defecto):
 def build_report(tipo, desde, hasta, instalacion_id):
     if tipo == 'ocupacion':
         return reporte_ocupacion(desde, hasta, instalacion_id)
-    if tipo == 'uso':
-        return reporte_uso(desde, hasta, instalacion_id)
+    # if tipo == 'uso':
+        # return reporte_uso(desde, hasta, instalacion_id)
     if tipo == 'denegados':
         return reporte_denegados(desde, hasta)
     return reporte_bitacora(desde, hasta, instalacion_id)
